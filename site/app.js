@@ -30,6 +30,8 @@
     $("langBtn").textContent = l === "zh" ? "English" : "中文";
     render();
     if ($("walletModal").open) renderModal();
+    if (typeof renderLb === "function" && LBV) renderLb();
+    if ($("inviteModal").open) renderInvite();
   }
   $("langBtn").onclick = () => setLang(lang === "en" ? "zh" : "en");
 
@@ -81,6 +83,7 @@
     overview: "0x3a2056f1", valve: "0x3a81955f", walletStatus: "0x4d6d0af8", costOf: "0xfd326592", bnbQuote: "0x68bce8cd",
     mint: "0x836a1040", mintWithBnb: "0xe38fd349", allowance: "0xdd62ed3e", approve: "0x095ea7b3",
     balanceOf: "0x70a08231", handleOf: "0xc50a1514", ownerOfHandle: "0x1da94fb4",
+    socialDone: "0x6edd0f2e", claimSocial: "0x2e3c4860",
   };
   const ERRORS = {
     "0x9e87fac8": ["Minting is paused.", "铸造已暂停。"],
@@ -96,6 +99,9 @@
     "0xddafad98": ["The pool is not open yet.", "资金池尚未开启。"],
     "0xe450d38c": ["Not enough USDT in this wallet.", "钱包 USDT 余额不足。"],
     "0xfb8f41b2": ["USDT approval is too low. Approve again.", "USDT 授权额度不足，请重新授权。"],
+    "0x5cd5d233": ["The task voucher expired. Claim again.", "任务凭证已过期，请重新领取。"],
+    "0x87b38f77": ["This task, or this X account, has already been used.", "该任务或该 X 账号已被使用。"],
+    "0x6921e3b4": ["Unknown task.", "未知任务。"],
   };
   function errText(e) {
     const datas = [e && e.data, e && e.data && e.data.data, e && e.error && e.error.data, e && e.info && e.info.error && e.info.error.data];
@@ -126,7 +132,17 @@
     if (n <= 20000) return T("Tier 2 · 1.10 → 2.00", "第二档 · 1.10 → 2.00");
     return T("Tier 3 · 2.10 → 2.28", "第三档 · 2.10 → 2.28");
   }
-  const qty = () => Math.max(1, Math.min(10, parseInt($("qty").value || "1", 10) || 1));
+  // shares radio 1..10 like jager.live: max = min(10, remaining quota); defaults to the max available
+  let selQty = null;
+  const avail = () => (W.status ? Math.min(Math.max(W.status.quota - W.status.minted, 0), 10) : 0);
+  const qty = () => { const q = avail(); return Math.min(Math.max(selQty ?? q, 1), Math.max(q, 1)); };
+  function renderQty() {
+    const box = $("mintCtrl"); if (!box) return;
+    box.style.display = W.account && W.handle ? "" : "none";
+    const q = avail(), r = qty();
+    $("qtyGroup").innerHTML = Array.from({ length: 10 }, (_, i) => i + 1).map((n) => `<button type="button" role="radio" aria-checked="${n === r}" class="${n === r ? "on" : ""}" data-q="${n}"${n > q ? " disabled" : ""}>${n}</button>`).join("");
+    $("qtyGroup").querySelectorAll("button").forEach((b) => (b.onclick = () => { selQty = +b.dataset.q; renderQty(); updateCost(); }));
+  }
 
   function render() {
     stepTable();
@@ -164,6 +180,8 @@
     const sx = C.social || {};
     $("socialInfo").textContent = sx.x ? "X: @" + sx.x : "";
     renderWallet();
+    renderQty();
+    if ($("inviteModal").open) renderInvite();
   }
 
   async function updateCost() {
@@ -175,11 +193,12 @@
       try { const w = words(await call(C.mint, SEL.bnbQuote + encU(q))); txt = fmt(w[0], 6) + " BNB"; } catch (e) { txt += " (BNB)"; }
     }
     $("costOut").textContent = "≈ " + txt;
+    $("costOut").dataset.u = (cents / 100).toFixed(2).replace(/\.?0+$/, "");
     renderMintButton();
   }
-  $("qty").oninput = updateCost;
-  $("payUsdt").onclick = () => { pay = "usdt"; $("payUsdt").classList.add("on"); $("payBnb").classList.remove("on"); updateCost(); };
-  $("payBnb").onclick = () => { pay = "bnb"; $("payBnb").classList.add("on"); $("payUsdt").classList.remove("on"); updateCost(); };
+  const setPay = (v) => { pay = v; [["payUsdt", "usdt"], ["payBnb", "bnb"]].forEach(([id, k]) => { $(id).classList.toggle("on", k === v); $(id).setAttribute("aria-checked", String(k === v)); }); updateCost(); };
+  $("payUsdt").onclick = () => setPay("usdt");
+  $("payBnb").onclick = () => setPay("bnb");
 
   // ---------------------------------------------------------------- referral ?ref=<handle>.ai
   async function loadRef() {
@@ -250,7 +269,7 @@
   function onAccounts(a) { if (!a || !a.length) return disconnect(); W.account = a[0]; resetWalletData(); refreshWallet(); render(); }
   function onChain(c) { W.chainId = typeof c === "number" ? "0x" + c.toString(16) : String(c).toLowerCase(); refreshWallet(); render(); }
   function onDisconnect() { disconnect(); }
-  function resetWalletData() { W.handle = null; W.agentOk = false; W.status = null; W.bnb = null; W.usdt = null; }
+  function resetWalletData() { W.handle = null; W.agentOk = false; W.status = null; W.bnb = null; W.usdt = null; selQty = null; }
 
   async function connectWith(w) {
     status("");
@@ -292,7 +311,6 @@
     Object.assign(W, { provider: null, name: "", icon: "", rdns: "", account: null, chainId: null });
     resetWalletData();
     localStorage.removeItem("bnagent-wallet");
-    $("refBox").style.display = "none";
     status(""); render();
   }
   async function tryAutoReconnect() {
@@ -323,10 +341,14 @@
     try { W.bnb = BigInt(await rpc("eth_getBalance", [a, "latest"])); } catch (e) { /* ignore */ }
     try { W.usdt = words(await call(C.usdt, SEL.balanceOf + encA(a)))[0]; } catch (e) { /* ignore */ }
     if (deployed) {
-      try { const s = words(await call(C.mint, SEL.walletStatus + encA(a))); W.agentOk = s[0] === 1n; W.status = { minted: Number(s[2]), quota: Number(s[3]) }; } catch (e) { W.status = null; }
+      try {
+        const s = words(await call(C.mint, SEL.walletStatus + encA(a))); W.agentOk = s[0] === 1n;
+        const social = {};
+        if (W.agentOk) for (const t of TASKS) { try { social[t.id] = words(await call(C.mint, SEL.socialDone + encU(s[1]) + pad(t.hash)))[0] === 1n; } catch (e) { social[t.id] = false; } }
+        W.status = { id: s[1], minted: Number(s[2]), quota: Number(s[3]), social };
+      } catch (e) { W.status = null; }
     } else W.agentOk = !!W.handle;
     if (a !== W.account) return;
-    if (W.handle) { const link = `${location.origin}${location.pathname}?ref=${W.handle}.ai`; $("refBox").style.display = "block"; $("refBox").innerHTML = T("Your invite link: ", "你的邀请链接：") + `<code>${esc(link)}</code>`; }
     render();
   }
 
@@ -367,8 +389,8 @@
     else if (s.paused) label = T("Minting is paused", "铸造已暂停");
     else if (s.minted >= 30000) label = T("Sold out", "已售罄");
     else if (s.mintable === 0) label = T("Minting ended", "铸造已结束");
-    else if (W.status && W.status.quota - W.status.minted <= 0) label = T("Quota used · invite or do tasks", "额度已用完 · 邀请或做任务");
-    else { label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${$("costOut").textContent.replace("≈ ", "")}`, `铸造 ${qty()} 份 · ${$("costOut").textContent.replace("≈ ", "")}`); ok = true; }
+    else if (W.status && W.status.quota - W.status.minted <= 0) label = T("Quota used · Invite or do tasks to earn more", "额度已用完 · 邀请或做任务获得更多");
+    else { const u = $("costOut").dataset.u || "—", bnb = pay === "bnb"; label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${u}U${bnb ? " in BNB" : ""}`, `铸造 ${qty()} 份 · ${u}U${bnb ? "（BNB 支付）" : ""}`); ok = true; }
     b.textContent = label;
     b.disabled = !ok;
   }
@@ -635,8 +657,130 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     finally { renderMintButton(); }
   };
 
+  // ---------------------------------------------------------------- Invite & tasks · +1 mint (same dialog as jager.live)
+  const API = C.api || "https://bnagent-api.onrender.com";
+  const XH = (C.social && C.social.x) || "bnAgent_";
+  const SITE_HOST = "bnagent.onrender.com";
+  const TASKS = [
+    { id: "FOLLOW", hash: "0xd0da9b1693253fae9e3642967a8d27bb318f84f49ff0596c1d11ecec5bd752f3", title: () => T(`Follow @${XH} on X`, `在 X 关注 @${XH}`), action: () => T("Follow", "关注"), href: `https://x.com/intent/follow?screen_name=${XH}` },
+    { id: "TWEET", hash: "0x93e97387cbdd54fcd2e94ca587c3745ec0fd3255bec4a5a576b02fcd5dcd413e", title: () => T("Post your mint or BNAGENT content", "发布你的铸造或 BNAGENT 相关内容"), action: () => T("Post", "发帖"), href: `https://x.com/intent/post?text=${encodeURIComponent(`Minting BNAGENT with @${XH} on BNB Chain. ${SITE_HOST}`)}` },
+  ];
+  const IV = { opened: {}, busy: null, err: {}, url: "", copied: null };
+  const ICON_X = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+  const ICON_USERS = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
+  const ICON_LIST = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+  function renderInvite() {
+    const st = W.status, handle = W.handle || null;
+    const link = handle ? `https://${SITE_HOST}/?ref=${handle}.ai` : "", code = handle ? `${handle}.ai` : "";
+    let top;
+    if (!W.account) top = `<button type="button" class="pbtn big" id="ivConnect">${T("Connect Binance Wallet to claim", "连接币安钱包后领取")}</button>`;
+    else if (!st && W.handle !== "") top = `<p class="ivp">${T("Loading…", "加载中…")}</p>`;
+    else if (!handle || !W.agentOk) top = `<p class="ivp" style="font-size:14px">${T("This wallet holds no .ai Agent ID. Connect the Agentic Wallet that owns it.", "该钱包没有 .ai Agent ID，请连接持有它的 Agentic Wallet。")}</p>`;
+    else top = `<dl class="qgrid" id="ivQuota"><div><dt>${T("Quota", "额度")}</dt><dd>${st.quota}</dd></div><div><dt>${T("Minted", "已铸")}</dt><dd>${st.minted}</dd></div><div><dt>${T("Remaining", "剩余")}</dt><dd class="hl">${Math.max(st.quota - st.minted, 0)}</dd></div></dl>`;
+    const socialDoneN = st && st.social ? Object.values(st.social).filter(Boolean).length : 0;
+    const counted = handle && st ? `<span class="cnt" id="ivCounted">${Math.max(st.quota - 10 - socialDoneN, 0)} ${T("counted", "已计入")}</span>` : "";
+    const inv = handle
+      ? `<div class="ivbox"><span class="lnk" id="ivLink">${esc(link)}</span><button type="button" class="cbtn" id="ivCopyLink">${IV.copied === "link" ? T("Copied", "已复制") : T("Copy link", "复制链接")}</button></div>
+         <div class="ivbox"><span class="small">${T("Code", "邀请码")} <span class="code">${esc(code)}</span></span><button type="button" class="cbtn" id="ivCopyCode">${IV.copied === "code" ? T("Copied", "已复制") : T("Copy code", "复制邀请码")}</button></div>`
+      : `<p class="ivdash">${T(`Your invite link (${SITE_HOST}/?ref=yourname.ai) appears after you connect an Agent ID.`, `连接 Agent ID 后会显示你的邀请链接（${SITE_HOST}/?ref=yourname.ai）。`)}</p>`;
+    const doneN = TASKS.filter((t) => st && st.social && st.social[t.id]).length;
+    const canClaim = !!(handle && W.agentOk);
+    const tasks = TASKS.map((t) => {
+      const done = !!(st && st.social && st.social[t.id]);
+      const ready = IV.opened[t.id] && (t.id !== "TWEET" || IV.url.trim().length > 0);
+      const act = done ? `<span class="tdone">${ICON_CHECK} +1</span>`
+        : `<div class="tact"><a class="obtn" href="${esc(t.href)}" target="_blank" rel="noreferrer" data-open="${t.id}">${t.action()} ${ICON_X}</a>` +
+          (W.account ? `<button type="button" class="pbtn" data-claim="${t.id}"${!canClaim || !ready || IV.busy ? " disabled" : ""}>${IV.busy === t.id ? "… " : ""}${T("Claim +1", "领取 +1")}</button>` : `<button type="button" class="pbtn" data-connect="1">${T("Connect to claim", "连接后领取")}</button>`) + `</div>`;
+      const extra = t.id === "TWEET" && !done
+        ? `<p class="ivp">${T("Post your mint (or any post about BNAGENT) and paste its link. Reposted one from", "发布你的铸造（或任何关于 BNAGENT 的帖子）并粘贴帖子链接。转发了")} <a href="https://x.com/${XH}" target="_blank" rel="noreferrer" data-open="TWEET">@${XH}</a>${T("? Paste that post's link.", " 的帖子？粘贴那条帖子的链接。")}</p>
+           <input type="url" inputmode="url" id="ivUrl" value="${esc(IV.url)}" placeholder="https://x.com/…/status/…" aria-label="Post link">` : "";
+      return `<li data-task="${t.id}"><div class="trow"><span class="tt${done ? " done" : ""}">${t.title()}</span>${act}</div>${extra}${IV.err[t.id] ? `<span class="terr">${esc(IV.err[t.id])}</span>` : ""}</li>`;
+    }).join("");
+    $("inviteBody").innerHTML = `<div class="iv">
+      <div class="ivtop"><div><h2 id="invite-title">${T("Earn extra mints", "赚取额外铸造额度")}</h2><p>${T("Every Agent ID starts with 10 shares. Each invitee's first mint adds +1, and each social task adds +1. Extra shares are still paid at the current price.", "每个 Agent ID 初始 10 份额度。每位被邀请人首次铸造 +1，每完成一项社交任务 +1。额外份额仍按当前价格付费。")}</p></div><button type="button" class="ivx" id="ivClose" aria-label="Close">✕</button></div>
+      ${top}
+      <section class="ivsec" aria-labelledby="invite-heading"><div class="ivh"><h3 id="invite-heading">${ICON_USERS}${T("Invite friends · +1 each", "邀请好友 · 每人 +1")}</h3>${counted}</div>
+        <p class="ivp">${T("You get +1 share of quota when a new .ai opens your link and completes their first paid mint. Inviting yourself does not count.", "新的 .ai 通过你的链接完成首次付费铸造后，你获得 +1 份额度。邀请自己无效。")}</p>${inv}</section>
+      <section class="ivsec" aria-labelledby="tasks-heading"><div class="ivh"><h3 id="tasks-heading">${ICON_LIST}${T("Social tasks", "社交任务")} <span class="mut">${T("· +1 each, once", "· 每项 +1，仅一次")}</span></h3><span class="cnt" id="ivTasksDone">${doneN} / ${TASKS.length} ${T("done", "完成")}</span></div>
+        <p class="ivp">${T("Each task adds +1 share of quota, once per Agent ID.", "每项任务为每个 Agent ID 增加 +1 份额度，仅一次。")}</p>
+        <ul class="tasks" id="ivTasks">${tasks}</ul></section>
+    </div>`;
+    $("ivClose").onclick = closeInvite;
+    if ($("ivConnect")) $("ivConnect").onclick = () => { closeInvite(); openModal(); };
+    $("inviteBody").querySelectorAll("[data-connect]").forEach((b) => (b.onclick = () => { closeInvite(); openModal(); }));
+    $("inviteBody").querySelectorAll("[data-open]").forEach((a) => a.addEventListener("click", () => { IV.opened[a.dataset.open] = true; setTimeout(renderInvite, 50); }));
+    $("inviteBody").querySelectorAll("[data-claim]").forEach((b) => (b.onclick = () => claimTask(b.dataset.claim)));
+    if ($("ivUrl")) $("ivUrl").oninput = (e) => { IV.url = e.target.value; const b = $("inviteBody").querySelector('[data-claim="TWEET"]'); if (b) b.disabled = !canClaim || !IV.opened.TWEET || !IV.url.trim() || !!IV.busy; };
+    const cp = async (k) => { await copy(k === "link" ? link : code); IV.copied = k; renderInvite(); setTimeout(() => { IV.copied = null; if ($("inviteModal").open) renderInvite(); }, 1500); };
+    if ($("ivCopyLink")) $("ivCopyLink").onclick = () => cp("link");
+    if ($("ivCopyCode")) $("ivCopyCode").onclick = () => cp("code");
+  }
+  async function claimTask(id) {
+    IV.busy = id; IV.err[id] = undefined; renderInvite();
+    let err = null;
+    try {
+      if (!W.account) throw new Error(T("Connect your wallet first.", "请先连接钱包。"));
+      if (W.chainId !== BSC) { await switchToBsc(); if (W.chainId !== BSC) throw new Error(T("Switch to BNB Smart Chain", "请切换到 BNB Smart Chain")); }
+      const r = await fetch(API + "/api/social", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: W.account, task: id, tweetUrl: id === "TWEET" ? IV.url.trim() : undefined }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || T("Claim failed", "领取失败"));
+      const sig = String(j.signature || "").replace(/^0x/, "");
+      if (sig.length !== 130 || !/^0x[0-9a-f]{64}$/i.test(j.taskId) || !/^0x[0-9a-f]{64}$/i.test(j.account)) throw new Error(T("Claim failed", "领取失败"));
+      const data = SEL.claimSocial + pad(j.taskId) + pad(j.account) + encU(j.deadline) + encU(128) + encU(65) + sig + "0".repeat(62);
+      status(T("Confirm the task claim in your wallet…", "请在钱包中确认领取任务…"));
+      const h = await send({ from: W.account, to: C.mint, data });
+      status(T("Waiting for confirmation…", "等待确认…"));
+      const ok = await waitTx(h);
+      if (!ok) throw new Error(T("Transaction reverted on-chain.", "交易在链上失败。"));
+      status(T("Task claimed: +1 share of quota.", "任务已领取：额度 +1。"), "ok");
+      if (id === "TWEET") IV.url = "";
+      await refreshWallet();
+    } catch (e) { err = errText(e); status(""); }
+    IV.busy = null; IV.err[id] = err || undefined;
+    if ($("inviteModal").open) renderInvite();
+  }
+  function openInvite() { renderInvite(); const d = $("inviteModal"); if (!d.open) { if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", ""); } }
+  function closeInvite() { const d = $("inviteModal"); if (d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); } }
+  $("inviteBtn").onclick = openInvite;
+  $("inviteModal").addEventListener("click", (e) => { if (e.target === $("inviteModal")) closeInvite(); });
+
+  // ---------------------------------------------------------------- Leaderboard (same as jager.live: Invites / Mints / Holders, Day / Week, Top 100)
+  const LBS = [{ key: "invites", title: () => T("Invites", "邀请"), unit: () => T("Invites", "邀请") }, { key: "mints", title: () => T("Mints", "铸造"), unit: () => T("Shares", "份数") }, { key: "holders", title: () => T("Holders", "持有"), unit: () => "BNAGENT" }];
+  const LBV = { board: "invites", period: "day", data: null, err: false, timer: null };
+  const big = (v) => { const r = Number(BigInt(v) / 10n ** 18n); return r >= 1e12 ? (r / 1e12).toFixed(2) + "T" : r >= 1e9 ? (r / 1e9).toFixed(2) + "B" : r >= 1e6 ? (r / 1e6).toFixed(2) + "M" : r.toLocaleString(); };
+  function renderLb() {
+    const d = LBV.data, b = LBS.find((x) => x.key === LBV.board);
+    $("lbBoards").innerHTML = LBS.map((x) => `<button type="button" role="tab" aria-selected="${x.key === LBV.board}" class="${x.key === LBV.board ? "on" : ""}" data-b="${x.key}">${x.title()}</button>`).join("");
+    $("lbPeriod").innerHTML = ["day", "week"].map((p) => `<button type="button" role="tab" aria-selected="${p === LBV.period}" class="${p === LBV.period ? "on" : ""}" data-p="${p}">${p === "day" ? T("Day", "日") : T("Week", "周")}</button>`).join("");
+    $("lbBoards").querySelectorAll("button").forEach((x) => (x.onclick = () => { LBV.board = x.dataset.b; renderLb(); }));
+    $("lbPeriod").querySelectorAll("button").forEach((x) => (x.onclick = () => { LBV.period = x.dataset.p; renderLb(); }));
+    const sub = !d ? "" : LBV.board === "holders" ? (LBV.period === "day" ? T("Snapshot at 23:59 UTC · live until then", "UTC 23:59 快照 · 之前实时") : T("Snapshot Sunday 23:59 UTC · live until then", "周日 UTC 23:59 快照 · 之前实时")) : LBV.period === "day" ? T(`UTC day ${d.day}`, `UTC 日 ${d.day}`) : T(`UTC week from Monday ${d.week}`, `UTC 周（周一 ${d.week} 起）`);
+    $("lbSub").textContent = "Top 100 · " + sub + (d && d.syncing ? T(" · catching up with BSC", " · 正在同步 BSC") : "");
+    $("lbUnit").textContent = b.unit();
+    const me = W.handle ? `${W.handle}.ai` : null;
+    const rows = d ? (d.boards[LBV.board] || {})[LBV.period] || [] : [];
+    let h = "";
+    if (!d && !LBV.err) h = `<li class="lbmsg">${T("Loading…", "加载中…")}</li>`;
+    else if (!d && LBV.err) h = `<li class="lbmsg">${T("Leaderboard unavailable right now.", "排行榜暂时不可用。")}</li>`;
+    else if (!rows.length) h = `<li class="lbmsg">${T("Nobody on this board yet.", "榜单暂无人上榜。")}</li>`;
+    else h = rows.map((r) => `<li class="lbrow${r.label === me ? " me" : ""}"><span class="rk${r.rank <= 3 ? " top" : ""}">${r.rank}</span><span class="nm">${esc(r.label)}${r.label === me ? ` <span class="small">${T("· You", "· 你")}</span>` : ""}</span><span class="val">${LBV.board === "holders" ? big(r.value) : Number(r.value).toLocaleString()}</span></li>`).join("");
+    $("lbList").innerHTML = h;
+    $("lbList").setAttribute("aria-label", `Top ${b.key} this ${LBV.period}`);
+  }
+  async function loadLb() {
+    try { const r = await fetch(API + "/api/leaderboard", { cache: "no-store" }); const j = await r.json(); if (!r.ok) throw new Error(j.error); LBV.data = j; LBV.err = false; }
+    catch (e) { if (!LBV.data) LBV.err = true; }
+    renderLb();
+    clearTimeout(LBV.timer); LBV.timer = setTimeout(loadLb, LBV.data && !LBV.data.syncing ? 300000 : 60000);
+  }
+
+  // wake the API (Render free instance sleeps after ~15 min idle) as early as possible; fire-and-forget
+  try { fetch(API + "/", { mode: "no-cors", cache: "no-store" }).catch(() => {}); } catch (e) { /* ignore */ }
+
   setLang(lang);
   loadRef();
+  loadLb();
   load();
   setTimeout(tryAutoReconnect, 400);
   setInterval(load, 15000);

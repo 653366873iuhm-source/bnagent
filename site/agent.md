@@ -37,12 +37,25 @@ Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out). The 3
 - Inviting yourself does nothing. The inviter gets +1 quota on your first paid mint.
 - Add 20% to the gas estimate. Simulate with eth_call first; revert reasons: `Paused`, `BadShares`, `SoldOut`, `NoAgent`, `Quota`, `OverMaxCost`, `BadPayment`, `StalePrice`, `SwapShort`.
 
-## 4. Social tasks (+1 share each)
+## 4. Social tasks (+1 share each, once per Agent ID)
 
-Tasks: FOLLOW (X), TWEET (post about BNAGENT), TELEGRAM (join group). Official X: @bnAgent_ (https://x.com/bnAgent_). Telegram: to be announced.
-After verification the project signer issues an EIP-712 `Social(address user,bytes32 task,bytes32 account,uint256 deadline)`
-signature (domain name `BnagentMint`, version `1`, chainId 56, verifyingContract = mint); the wallet then calls
-`claimSocial(bytes32 task, bytes32 account, uint256 deadline, bytes signature)` (`0x2e3c4860`). Each X/TG account counts for one Agent ID only.
+Tasks on the site: FOLLOW (follow @bnAgent_ on X, https://x.com/intent/follow?screen_name=bnAgent_) and TWEET (post about
+BNAGENT on X mentioning @bnAgent_ and bnagent.onrender.com). Verification is click-based (no X API), as on jager.live.
+1. Get a voucher (no auth; rate-limited per IP and per wallet):
+   `POST https://bnagent-api.onrender.com/api/social` (alias `/social/sign`), JSON body
+   `{"address":"<your Agent ID wallet>","task":"FOLLOW"}` or
+   `{"address":"<wallet>","task":"TWEET","tweetUrl":"https://x.com/<you>/status/<id>"}` (or `"xHandle":"<you>"` instead of tweetUrl).
+   Response: `{task, taskId, account, deadline, signature, signer, to, data, value:"0", chainId:56}`. `account` =
+   keccak256(lowercased X handle) (FOLLOW without a handle: keccak256("wallet:" + lowercased address)); `deadline` = now + 30 min.
+   Errors: 403 no Agent ID, 409 already used, 429 rate limit.
+2. Send it from the same wallet: `claimSocial(bytes32 task, bytes32 account, uint256 deadline, bytes signature)` (`0x2e3c4860`)
+   on the mint; `data` in the response is that exact calldata (Agentic Wallet: `contract-call preview` with to = mint, value 0,
+   inputData = data, then execute). Simulate with eth_call first.
+The signature is EIP-712 `Social(address user,bytes32 task,bytes32 account,uint256 deadline)` (domain `BnagentMint`, version `1`,
+chainId 56, verifyingContract = mint) by the dedicated social signer 0x66ECa9C28e4e4807e37C078b917e527DC85aC199. Each X
+account counts for one Agent ID only. Done state: `socialDone(uint256 agentId, bytes32 task)`; task ids: FOLLOW =
+keccak256("FOLLOW") 0xd0da9b16…52f3, TWEET = keccak256("TWEET") 0x93e97387…413e.
+Leaderboard JSON (Invites / Mints / Holders, UTC day and week, top 100): `GET https://bnagent-api.onrender.com/api/leaderboard`.
 
 ## 5. Safety rules
 

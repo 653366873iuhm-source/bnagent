@@ -31,11 +31,22 @@
   Desktop: QR + pairing code; mobile: "Open in Binance App" link (the QR URL is a Binance universal link). Connected session acts as an EIP-1193
   provider, so the mint flow is unchanged (preview → user approves in the app → txHash). Headless tests 32/32 (deployed-state checks: live supply 1,100/30,000, paused label, addresses).
 
+## Social tasks, invite dialog, leaderboard, keep-alive (2026-10-30 ~03:30 CST)
+- API `bnagent-api` now also serves `POST /api/social` (alias `/social/sign`): click-based vouchers like jager.live (FOLLOW: no input;
+  TWEET: pasted post link or xHandle), EIP-712 Social(...) signed by 0x66EC…C199 (key in Render env `SOCIAL_SIGNER_KEY`, never committed;
+  keystore stays in secrets/), Agent ID + socialDone + accountAgent checked on-chain, rate limits 30/10min per IP, 8/10min per wallet.
+  `GET /api/leaderboard` (alias `/stats/leaderboard`): Invites / Mints / Holders × UTC day / week, top 100, Agent IDs only, from mint+token
+  logs since block 130,514,568 (eth_getLogs via rpc-bsc.48.club / nodereal public, 5,000-block chunks; in-memory, rebuilt on restart).
+  noble.mjs = vendored @noble/curves+hashes bundle (service stays dependency-free, build `echo no-deps`).
+- Site copies jager.live: header "Invite & tasks · +1 mint" (mobile "Earn") dialog (quota grid, invite link + code copy, social tasks
+  Follow/Post → Claim +1 → claimSocial via the connected wallet), shares radio 1–10 + USDT/BNB radios in the mint card, Leaderboard card.
+  Not copied (need persistent storage): Jager's "Bind X" section and "Border season" points/levels.
+- `.github/workflows/keepalive.yml` pings https://bnagent-api.onrender.com/ every 10 min; the site also pings it on load.
+
 ## Not done / next
 - Render auto-deploy on push did NOT fire for either service (GitHub webhook apparently not wired for this repo): after each push trigger
   `POST https://api.render.com/v1/services/<id>/deploys` (static `srv-dbhnqqqjnfac73afudj0`, api `srv-dbhnrnnlk1mc73d80lm0`) or fix the Render GitHub app access.
 - **Open minting**: tx 2 `setPaused(false)` from the treasury — only after the user confirms (starts the 30-day clock).
-- Social-task verification backend (signs `Social(...)` with the dedicated key) — not built.
 - Real scan-and-approve of the QR flow not exercised (needs a user with the Binance App); Render free web service sleeps after ~15 min idle,
   so the first QR request can take ~30-60 s.
 

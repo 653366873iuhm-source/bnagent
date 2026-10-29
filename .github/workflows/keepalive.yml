@@ -1,0 +1,22 @@
+name: keepalive
+# Render free web services sleep after ~15 min idle; ping the API every 10 minutes so the QR login / social vouchers answer fast.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping bnagent-api
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /tmp/out -w '%{http_code}' --max-time 90 https://bnagent-api.onrender.com/ || true)
+            echo "attempt $i: HTTP $code"; head -c 300 /tmp/out || true; echo
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          exit 1
