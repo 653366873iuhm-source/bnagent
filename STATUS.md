@@ -71,3 +71,8 @@
   Bind X persisted via keepalive.yml job export-bindx → branch `data`, file data/bindx.json; restored on boot. Spec: docs/JAGER-BINDX-SEASON.md.
 - Tests: `node test/server/api.test.mjs` (39) and `NODE_PATH=/workspace/work/webtest/node_modules PW_LIBS=/workspace/work/webtest/libs
   node test/site/site.test.js [siteDir] [liveUrl]` (79; was the 52-test /workspace/work/webtest/bn-site.test.js, now in the repo).
+- Shipped: commits e2c67d9 + 26c9534 on main; Render deploys dep-dbhq7eifngtc73caj9og (site) / dep-dbhq7eui0phs73f1i3n0 (api) for e2c67d9,
+  dep-dbhqai67bikc73f9k0f0 (site) for 26c9534; gh-pages mirrored by the deploy workflow (44d27a4, 94cf4f3); data branch created by the
+  first export run. Live tests: Render 78/78, GitHub Pages 78/78 (live mode skips 1 local-only Bind X POST check).
+- Render CDN caches index.html ~5 min (s-maxage=300, ignores query strings): right after a deploy an old index can meet new JS; css/js
+  now carry ?v=<tag> — bump the tag when changing app.js/style.css.
