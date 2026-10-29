@@ -145,11 +145,10 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
   {
     const ctx = await b.newContext(); const pg = await ctx.newPage();
     await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
-    const logoOk = await pg.evaluate(async () => { const img = document.querySelector('header img'); return !!img && img.complete && img.naturalWidth > 0 && /assets\/bnagent-logo\.svg/.test(img.src); });
-    const logoSvg = await pg.evaluate(async () => (await fetch(document.querySelector('header img').src, { cache: 'no-store' })).text());
-    ok('brand: header logo loads and is the new mark + wordmark', logoOk && logoSvg.includes('viewBox="0 0 420 100"') && logoSvg.includes('url(#lw)'));
+    const logoOk = await pg.evaluate(async () => { const img = document.querySelector('header img'); return !!img && img.complete && img.naturalWidth > 0 && /assets\/bnagent-lockup-v2\.png/.test(img.src); });
+    ok('brand: header logo loads and is the v2 lockup (helmet mark + BNAGENT)', logoOk);
     const og = await pg.getAttribute('meta[property="og:image"]', 'content');
-    ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og.png', og);
+    ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og-v2.png', og);
     const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
     ok('supply: SUPPLY, 1,100 / 30,000, one gold bar, one legend', sup.label === 'SUPPLY' && sup.big === '1,100 / 30,000' && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted 1,100 / 30,000', JSON.stringify(sup));
     const wp = await pg.textContent('#whitepaper');
