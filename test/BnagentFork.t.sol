@@ -16,6 +16,17 @@ interface IRouterV2 {
         address to,
         uint256 deadline
     ) external;
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint256 amountADesired,
+        uint256 amountBDesired,
+        uint256 amountAMin,
+        uint256 amountBMin,
+        address to,
+        uint256 deadline
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }
 
 /// @notice BSC mainnet fork tests. Run with BSC_RPC_URL set (an RPC that serves state at FORK_BLOCK).
@@ -45,6 +56,9 @@ contract BnagentForkTest is Test {
     address otherPair;
     uint256 burnsA;
     uint256 burnsB;
+    uint256 usdPaidInBnb; // USD value of shares paid with BNB (those proceeds reach the treasury as BNB)
+    uint256 bnbPaid; // BNB forwarded to the treasury by BNB mints
+    uint256 lpUsdt; // USDT the treasury pairs with the 400B in the simulated LP add
 
     function setUp() public {
         string memory rpc = vm.envString("BSC_RPC_URL");
@@ -130,10 +144,21 @@ contract BnagentForkTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _openPool() internal {
-        uint256 left = mint.OPEN_AT_SHARE() - mint.totalMinted();
-        _bulkMint(left);
-        assertTrue(mint.isOpen());
+    /// @dev Simulates the treasury adding the official liquidity itself through the PancakeSwap V2 router.
+    function _treasuryAddsLp(uint256 usdtAmt, uint256 tokenAmt) internal returns (uint256 liq) {
+        vm.startPrank(treasury);
+        usdt.approve(BscConfig.PANCAKE_V2_ROUTER, usdtAmt);
+        IERC20(address(token)).approve(BscConfig.PANCAKE_V2_ROUTER, tokenAmt);
+        (,, liq) = IRouterV2(BscConfig.PANCAKE_V2_ROUTER).addLiquidity(
+            address(token), BscConfig.USDT, tokenAmt, usdtAmt, tokenAmt, usdtAmt, treasury, block.timestamp
+        );
+        vm.stopPrank();
+    }
+
+    function _assertMintHoldsNothing() internal view {
+        assertEq(usdt.balanceOf(address(mint)), 0, "mint contract holds no USDT");
+        assertEq(address(mint).balance, 0, "mint contract holds no BNB");
+        assertEq(IERC20(address(pair)).balanceOf(address(mint)), 0, "mint contract holds no LP");
     }
 
     function _buy(address who, uint256 usdtIn) internal returns (uint256 got) {
@@ -196,6 +221,7 @@ contract BnagentForkTest is Test {
     }
 
     function test_MintRules() public {
+        uint256 t0 = usdt.balanceOf(treasury);
         vm.startPrank(ALICE);
         vm.expectRevert(BnagentMint.InvalidShares.selector);
         mint.mint(0, address(0), 100 ether);
@@ -205,6 +231,7 @@ contract BnagentForkTest is Test {
         mint.mint(5, address(0), 4.99 ether);
         mint.mint(10, address(0), 10 ether);
         assertEq(token.balanceOf(ALICE), 500_000_000 ether);
+        assertEq(usdt.balanceOf(treasury) - t0, 10 ether, "full payment to treasury");
         vm.expectRevert(BnagentMint.OverQuota.selector);
         mint.mint(1, address(0), 1 ether);
         vm.stopPrank();
@@ -216,10 +243,10 @@ contract BnagentForkTest is Test {
         mint.mint(1, address(0), 1 ether);
         vm.stopPrank();
 
-        // parked for pool + treasury
-        assertEq(mint.parkedUsdt(), 8 ether);
-        assertEq(usdt.balanceOf(address(mint)), 8 ether);
-        assertEq(token.balanceOf(address(mint)), 400_000_000 ether);
+        // 100% of the 10 USDT went to the treasury; nothing parked in the contract
+        _assertMintHoldsNothing();
+        assertEq(token.balanceOf(address(mint)), 0, "no parked tokens");
+        assertEq(token.totalSupply(), 500_000_000 ether);
     }
 
     function test_PlainTransfersDoNotMint() public {
@@ -303,12 +330,16 @@ contract BnagentForkTest is Test {
         vm.prank(ALICE);
         vm.expectRevert(BnagentToken.TransfersLocked.selector);
         token.transfer(BOB, 1 ether);
+        vm.prank(ALICE);
+        vm.expectRevert(BnagentToken.TransfersLocked.selector);
+        token.transfer(address(pair), 1 ether); // only the treasury may fund the pair before opening
     }
 
     function test_BnbMintWithRefund() public {
         uint256 need = mint.bnbQuote(3);
         vm.deal(ALICE, 1 ether);
-        uint256 tBefore = usdt.balanceOf(treasury);
+        uint256 tBefore = treasury.balance;
+        uint256 uBefore = usdt.balanceOf(treasury);
         vm.prank(ALICE);
         vm.expectRevert(BnagentMint.CostAboveMax.selector);
         mint.mintWithBnb{value: need}(3, address(0), need - 1);
@@ -316,8 +347,9 @@ contract BnagentForkTest is Test {
         mint.mintWithBnb{value: need + 0.05 ether}(3, address(0), need + 0.05 ether);
         assertEq(ALICE.balance, 1 ether - need, "excess BNB refunded");
         assertEq(token.balanceOf(ALICE), 150_000_000 ether);
-        assertGe(usdt.balanceOf(treasury) - tBefore, 0.6 ether, "treasury 20% + swap surplus");
-        assertEq(mint.parkedUsdt(), 2.4 ether);
+        assertEq(treasury.balance - tBefore, need, "100% of the quoted BNB forwarded to treasury as BNB");
+        assertEq(usdt.balanceOf(treasury), uBefore, "no swap");
+        _assertMintHoldsNothing();
         uint256 one = mint.bnbQuote(1);
         vm.prank(ALICE);
         vm.expectRevert(BnagentMint.PaymentInvalid.selector);
@@ -337,33 +369,88 @@ contract BnagentForkTest is Test {
     }
 
     function _flowPhase1() internal {
-
         // phase 1 with a BNB mint in the middle
         _bulkMint(5_000);
         vm.deal(BOB, 1 ether);
         uint256 q = mint.bnbQuote(10);
         vm.prank(BOB);
         mint.mintWithBnb{value: q}(10, address(0), q);
+        usdPaidInBnb += 10 ether;
+        bnbPaid += q;
         _bulkMint(9_980 - mint.totalMinted());
-        assertFalse(mint.isOpen());
+        assertFalse(mint.lpTokensMinted());
         assertEq(mint.totalMinted(), 9_980);
+        _assertMintHoldsNothing();
 
-        // the crossing tx: 9,981..9,990 then ALICE 9,991..10,000 opens the pool, then CAROL crosses into 10,001+
+        // ALICE's tx covers 9,991..10,000: the 400B LP tokens go to the treasury, trading stays locked
         _bulkMint(10);
+        uint256 tTok = token.balanceOf(treasury);
         vm.prank(ALICE);
         mint.mint(10, address(0), 10 ether);
-        assertTrue(mint.isOpen(), "pool opened on share 10,000");
-        assertTrue(token.tradingOpen());
+        assertEq(mint.totalMinted(), 10_000);
+        assertTrue(mint.lpTokensMinted());
+        assertEq(token.balanceOf(treasury) - tTok, 400_000_000_000 ether, "400B LP tokens to treasury");
+        assertEq(token.balanceOf(ALICE), 500_000_000 ether);
+        assertFalse(mint.isOpen());
+        assertFalse(token.tradingOpen());
         (uint256 u, uint256 t) = mint.poolReserves();
+        assertEq(u + t, 0, "no automatic pool");
+        assertEq(token.totalSupply(), 10_000 * 50_000_000 ether + 400_000_000_000 ether);
+        // all 10,000 USDT reached the treasury (minus the 10 shares paid in BNB, which came as BNB)
+        assertEq(usdt.balanceOf(treasury) - treasuryUsdt0, 10_000 ether - usdPaidInBnb);
+        assertEq(treasury.balance - treasuryBnb0, bnbPaid);
+        _assertMintHoldsNothing();
+
+        // still locked for everyone; the treasury cannot send to wallets either
+        vm.prank(ALICE);
+        vm.expectRevert(BnagentToken.TransfersLocked.selector);
+        token.transfer(BOB, 1 ether);
+        vm.prank(treasury);
+        vm.expectRevert(BnagentToken.TransfersLocked.selector);
+        token.transfer(BOB, 1 ether);
+        // openTrading: wrong caller, then empty pair
+        vm.prank(ALICE);
+        vm.expectRevert(BnagentMint.NotTreasury.selector);
+        mint.openTrading();
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingNotReady.selector);
+        mint.openTrading();
+        assertFalse(mint.canOpenTrading());
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingNotOpen.selector);
+        mint.renounce();
+
+        // mints after 10,000 but before openTrading: table price, 50M per share
+        _newBulkId();
+        uint256 c0 = usdt.balanceOf(bulk);
+        uint256 k0 = token.balanceOf(bulk);
+        uint256 tr0 = usdt.balanceOf(treasury);
+        vm.prank(bulk);
+        mint.mint(10, address(0), 11 ether);
+        assertEq(c0 - usdt.balanceOf(bulk), 11 ether, "1.10 per share");
+        assertEq(usdt.balanceOf(treasury) - tr0, 11 ether, "to treasury");
+        assertEq(token.balanceOf(bulk) - k0, 500_000_000 ether, "50M per share before trading opens");
+        _bulkMint(40); // to 10,050
+
+        // the treasury adds the official liquidity itself (8,000 USDT + 400B in this simulation), then opens
+        lpUsdt = 8_000 ether;
+        uint256 liq = _treasuryAddsLp(lpUsdt, 400_000_000_000 ether);
+        assertGt(liq, 0);
+        assertEq(IERC20(address(pair)).balanceOf(treasury), liq, "LP held by treasury, not burned");
+        assertEq(IERC20(address(pair)).balanceOf(mint.DEAD()), 0, "no LP at dead");
+        assertTrue(mint.canOpenTrading());
+        assertFalse(token.tradingOpen(), "adding LP does not open trading");
+        vm.prank(treasury);
+        mint.openTrading();
+        assertTrue(mint.isOpen());
+        assertTrue(token.tradingOpen());
+        assertEq(mint.openedAt(), block.timestamp);
+        (u, t) = mint.poolReserves();
         assertEq(u, 8_000 ether);
         assertEq(t, 400_000_000_000 ether);
-        assertGt(IERC20(address(pair)).balanceOf(mint.DEAD()), 0, "LP at dead");
-        assertEq(IERC20(address(pair)).balanceOf(address(mint)), 0);
-        assertEq(mint.parkedUsdt(), 0);
-        assertEq(token.balanceOf(ALICE), 500_000_000 ether);
-        // 20% of 10,000 USDT (+ BNB swap surplus) reached the treasury
-        assertGe(usdt.balanceOf(treasury) - treasuryUsdt0, 2_000 ether);
-
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingAlreadyOpen.selector);
+        mint.openTrading();
     }
 
     function _flowPhase2Start() internal {
@@ -454,6 +541,8 @@ contract BnagentForkTest is Test {
         burnsA = _bulkMint(15_000 - mint.totalMinted());
         vm.deal(CAROL, 1 ether);
         uint256 q = mint.bnbQuote(5);
+        usdPaidInBnb += mint.quote(5);
+        bnbPaid += q;
         vm.prank(CAROL);
         mint.mintWithBnb{value: q}(5, address(0), q);
         burnsA += _bulkMint(20_000 - mint.totalMinted());
@@ -490,6 +579,10 @@ contract BnagentForkTest is Test {
         vm.expectRevert(BnagentMint.SoldOut.selector);
         mint.mint(1, address(0), 10 ether);
         assertLe(token.totalSupply(), token.HARD_CAP());
+        _assertMintHoldsNothing();
+        // every USDT payment landed in the treasury (it spent lpUsdt on the LP add)
+        assertEq(usdt.balanceOf(treasury) + lpUsdt - treasuryUsdt0, 47_400 ether - usdPaidInBnb, "100% USDT to treasury");
+        assertGe(treasury.balance - treasuryBnb0, bnbPaid, "BNB payments (+ tax BNB) to treasury");
 
         (uint256 u, uint256 t) = mint.poolReserves();
         uint256 circ = mint.circulatingSupply();
@@ -502,8 +595,64 @@ contract BnagentForkTest is Test {
         console2.log("dead balance (tokens):", token.balanceOf(mint.DEAD()) / 1e18);
         console2.log("circ value at pool price (USDT):", circ * u / t / 1e18);
         console2.log("floor line (USDT):", mint.floorLine() / 1e18);
-        console2.log("treasury USDT gained:", (usdt.balanceOf(treasury) - treasuryUsdt0) / 1e18);
+        console2.log("treasury USDT gained (net of its LP add):", (usdt.balanceOf(treasury) - treasuryUsdt0) / 1e18);
         console2.log("treasury BNB gained (wei):", treasury.balance - treasuryBnb0);
+    }
+
+    /// @notice openTrading reverts before share 10,000 even when the pair already holds liquidity.
+    function test_OpenTradingRevertsBefore10000() public {
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingNotReady.selector);
+        mint.openTrading();
+        _bulkMint(9_990);
+        // give the treasury some tokens out of band and let it seed the pair (allowed pre-open: treasury -> pair)
+        deal(address(token), treasury, 1_000_000 ether, false);
+        _treasuryAddsLp(10 ether, 1_000_000 ether);
+        (uint256 u, uint256 t) = mint.poolReserves();
+        assertGt(u, 0);
+        assertGt(t, 0);
+        assertFalse(mint.canOpenTrading());
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingNotReady.selector);
+        mint.openTrading();
+        assertFalse(token.tradingOpen());
+        _assertMintHoldsNothing();
+    }
+
+    /// @notice Someone donates USDT to the empty pair and syncs (reserves USDT>0, token=0): openTrading still
+    ///         reverts, the router's addLiquidity is blocked by the odd reserves, and the treasury can still add
+    ///         liquidity directly (transfer both tokens to the pair + pair.mint) and open.
+    function test_EmptyPairDonationAndDirectLpAdd() public {
+        _bulkMint(10_000);
+        assertTrue(mint.lpTokensMinted());
+        address griefer = address(0x6121EF);
+        deal(BscConfig.USDT, griefer, 1 ether);
+        vm.startPrank(griefer);
+        usdt.transfer(address(pair), 1);
+        pair.sync();
+        vm.stopPrank();
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.TradingNotReady.selector);
+        mint.openTrading();
+        vm.startPrank(treasury);
+        usdt.approve(BscConfig.PANCAKE_V2_ROUTER, 8_000 ether);
+        IERC20(address(token)).approve(BscConfig.PANCAKE_V2_ROUTER, 400_000_000_000 ether);
+        vm.expectRevert();
+        IRouterV2(BscConfig.PANCAKE_V2_ROUTER).addLiquidity(
+            address(token), BscConfig.USDT, 400_000_000_000 ether, 8_000 ether, 0, 0, treasury, block.timestamp
+        );
+        // direct add
+        IERC20(address(token)).transfer(address(pair), 400_000_000_000 ether);
+        usdt.transfer(address(pair), 8_000 ether);
+        uint256 liq = pair.mint(treasury);
+        assertGt(liq, 0);
+        mint.openTrading();
+        vm.stopPrank();
+        assertTrue(token.tradingOpen());
+        // post-open: a buy pays 1%
+        uint256 m0 = token.balanceOf(address(mint));
+        uint256 got = _buy(address(0x7EADE6), 10 ether);
+        assertApproxEqAbs((token.balanceOf(address(mint)) - m0) * 99, got, 100);
     }
 
     function test_HardCapEnforcedInToken() public {

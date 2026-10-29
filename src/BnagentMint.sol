@@ -13,22 +13,27 @@ import {
 /// @title BNAGENT fair mint
 /// @notice Shares are sold to Binance Agentic Wallets that hold a `.ai` Agent ID.
 ///
-///  Phase 1 (shares 1 .. 10,000, 1 USDT each): the buyer receives 50,000,000 BNAGENT per share;
-///  0.80 USDT and 40,000,000 BNAGENT per share are parked here for the opening pool, 0.20 USDT
-///  goes to the treasury.
+///  Payments: 100% of every payment goes straight to the treasury in the same transaction
+///  (USDT via transferFrom buyer -> treasury; BNB is forwarded as BNB). This contract never
+///  holds mint proceeds and never adds, locks or burns liquidity.
 ///
-///  Opening (the transaction that mints share 10,000): 8,000 USDT + 400,000,000,000 BNAGENT are
-///  added to the official PancakeSwap pair, LP goes to the dead address, transfers switch on.
+///  Shares 1 .. 10,000 (1 USDT each), and any later share sold before trading opens: the buyer
+///  receives 50,000,000 BNAGENT per share.
 ///
-///  Phase 2 (shares 10,001 .. 30,000): the buyer receives BNAGENT at 99% of the pool price, 80% of
-///  the payment is paired into the pool at the pool price (LP to dead), 20% goes to the treasury.
-///  While the pool value of circulating BNAGENT is below the floor line
-///  (totalPaid * FLOOR_NUM / FLOOR_DEN, about 1.80x the USDT paid in), pool inventory is burned,
-///  raising the pool price by at most 0.8% per transaction and never leaving fewer than
-///  POOL_MIN_TOKENS in the pool.
+///  Share 10,000: the transaction that mints it also mints LP_TOKENS (400,000,000,000 BNAGENT) to
+///  the treasury, which pairs them with USDT on the official PancakeSwap BNAGENT/USDT pair itself
+///  (the pair is created at deployment; it is the only pool the token accepts).
+///
+///  openTrading(): one-time treasury call, possible only after share 10,000 and once the official
+///  pair holds liquidity. It unlocks transfers (buy 1%, sell 1% burn + 1% fee, wallets 0%).
+///
+///  After trading opens: buyers receive BNAGENT at 99% of the pool price. While the pool value of
+///  circulating BNAGENT is below the floor line (totalPaid * FLOOR_NUM / FLOOR_DEN, about 1.80x the
+///  USDT paid in), pool inventory is burned (pair.sync), raising the pool price by at most 0.8% per
+///  transaction and never leaving fewer than POOL_MIN_TOKENS in the pool.
 ///
 ///  The treasury can pause/unpause minting and block/unblock pool contracts until it calls
-///  renounce(), which removes both powers forever.
+///  renounce() (allowed only after trading opens), which removes both powers forever.
 contract BnagentMint is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -36,10 +41,8 @@ contract BnagentMint is ReentrancyGuard {
     uint256 public constant TOTAL_SHARES = 30_000;
     uint256 public constant OPEN_AT_SHARE = 10_000;
     uint256 public constant TOKENS_PER_SHARE = 50_000_000 ether; // to the buyer, phase 1
-    uint256 public constant POOL_TOKENS_PER_SHARE = 40_000_000 ether; // parked for the pool, phase 1
-    uint256 public constant OPEN_USDT = 8_000 ether;
-    uint256 public constant OPEN_TOKENS = OPEN_AT_SHARE * POOL_TOKENS_PER_SHARE; // 400B
-    uint256 public constant TREASURY_BPS = 2_000; // 20%
+    /// @notice Minted to the treasury with share 10,000 for the liquidity it adds itself (400B).
+    uint256 public constant LP_TOKENS = 400_000_000_000 ether;
     uint256 public constant BUY_AT_BPS = 9_900; // phase-2 buyers pay 99% of the pool price
     /// @dev Floor line = totalPaid * FLOOR_NUM / FLOOR_DEN. FLOOR_DEN is the USDT price of all
     ///      30,000 shares (47,400). FLOOR_NUM keeps the reference ratio 50,000,000 / 27,727,060
@@ -88,9 +91,8 @@ contract BnagentMint is ReentrancyGuard {
     uint256 public totalPaid;
     bool public paused = true;
     bool public renounced;
-    uint256 public parkedUsdt;
-    uint256 public parkedTokens;
-    uint256 public openedAt;
+    bool public lpTokensMinted;
+    uint256 public openedAt; // timestamp of openTrading()
     uint256 public lastTaxSwapBlock;
 
     mapping(uint256 => uint256) public sharesMintedBy; // agent id => shares
@@ -106,7 +108,9 @@ contract BnagentMint is ReentrancyGuard {
         address indexed buyer, uint256 indexed agentId, uint256 firstShare, uint256 shares, uint256 paidUsdt
     );
     event QuotaAdded(address indexed account, uint256 indexed agentId, uint256 amount, bytes32 reason);
-    event PoolOpened(uint256 usdtAmount, uint256 tokenAmount, uint256 liquidity);
+    event LpTokensMinted(address indexed to, uint256 amount);
+    event TradingOpened(uint256 usdtReserve, uint256 tokenReserve);
+    event Payment(address indexed payer, address indexed treasury, uint256 usdtAmount, uint256 bnbAmount);
     event FloorBurn(uint256 atShare, uint256 tokens);
     event TaxConverted(uint256 tokensIn, uint256 bnbOut);
     event TaxConvertFailed(bytes reason);
@@ -122,7 +126,6 @@ contract BnagentMint is ReentrancyGuard {
     error CostAboveMax();
     error PaymentInvalid();
     error FeedInvalid();
-    error SwapTooSmall();
     error RefundFailed();
     error PayoutFailed();
     error UnknownTask();
@@ -133,7 +136,9 @@ contract BnagentMint is ReentrancyGuard {
     error NothingToConvert();
     error OneSwapPerBlock();
     error SelfOnly();
-    error PoolNotReady();
+    error TradingNotReady();
+    error TradingAlreadyOpen();
+    error TradingNotOpen();
 
     struct Params {
         address usdt;
@@ -160,7 +165,7 @@ contract BnagentMint is ReentrancyGuard {
         ) revert ZeroAddr();
         // The token is created here so that this contract is its minter without an initialize step
         // (the CREATE2 deployer proxy could not call one).
-        token = new BnagentToken(p.usdt, p.v2Factory, p.v4PoolManager, p.v4Vault);
+        token = new BnagentToken(p.usdt, p.v2Factory, p.v4PoolManager, p.v4Vault, p.treasury);
         usdt = IERC20(p.usdt);
         pair = IV2Pair(token.pair());
         wbnb = p.wbnb;
@@ -211,8 +216,16 @@ contract BnagentMint is ReentrancyGuard {
         return BASE_QUOTA + bonusQuota[agentId];
     }
 
+    /// @notice True once the treasury has called openTrading() (transfers live, pool pricing).
     function isOpen() public view returns (bool) {
-        return totalMinted >= OPEN_AT_SHARE;
+        return token.tradingOpen();
+    }
+
+    /// @notice True when openTrading() would succeed now (ignoring the caller check).
+    function canOpenTrading() public view returns (bool) {
+        if (isOpen() || totalMinted < OPEN_AT_SHARE) return false;
+        (uint256 u, uint256 t) = poolReserves();
+        return u > 0 && t > 0 && pair.totalSupply() > 0;
     }
 
     function poolReserves() public view returns (uint256 usdtReserve, uint256 tokenReserve) {
@@ -305,9 +318,25 @@ contract BnagentMint is ReentrancyGuard {
         token.setBlockedPool(pool, blocked);
     }
 
+    /// @notice One-time switch that unlocks BNAGENT transfers. Treasury only; requires share 10,000
+    ///         to be sold and the official pair to hold liquidity (both reserves > 0, LP minted).
+    ///         Cannot be undone. Not affected by renounce() (which itself requires trading open).
+    function openTrading() external {
+        if (msg.sender != treasury) revert NotTreasury();
+        if (isOpen()) revert TradingAlreadyOpen();
+        if (totalMinted < OPEN_AT_SHARE) revert TradingNotReady();
+        (uint256 u, uint256 t) = poolReserves();
+        if (u == 0 || t == 0 || pair.totalSupply() == 0) revert TradingNotReady();
+        token.openTrading();
+        openedAt = block.timestamp;
+        emit TradingOpened(u, t);
+    }
+
     /// @notice Permanently gives up pausing and pool blocking. Minting is left running.
+    ///         Only possible after openTrading(), so the treasury keeps its controls until then.
     function renounce() external {
         _requireAdmin();
+        if (!isOpen()) revert TradingNotOpen();
         renounced = true;
         paused = false;
         token.retireBlocking();
@@ -377,21 +406,23 @@ contract BnagentMint is ReentrancyGuard {
         uint256 id = _preflight(shares);
         uint256 cost = quote(shares);
         if (cost > maxCost) revert CostAboveMax();
-        usdt.safeTransferFrom(msg.sender, address(this), cost);
-        _issue(id, shares, cost, 0, referrer);
+        usdt.safeTransferFrom(msg.sender, treasury, cost);
+        emit Payment(msg.sender, treasury, cost, 0);
+        _issue(id, shares, cost, referrer);
     }
 
-    /// @notice Pay in BNB. `maxCost` is in BNB wei. BNB above the quote is refunded; USDT the swap
-    ///         returns above the cost goes to the treasury.
+    /// @notice Pay in BNB. `maxCost` is in BNB wei. The quoted BNB (Chainlink price + 1%) is forwarded
+    ///         to the treasury as BNB (no swap); BNB above the quote is refunded to the sender.
     function mintWithBnb(uint256 shares, address referrer, uint256 maxCost) external payable nonReentrant {
         uint256 id = _preflight(shares);
         uint256 cost = quote(shares);
         uint256 bnbNeeded = _usdToBnb(cost);
         if (bnbNeeded > maxCost) revert CostAboveMax();
         if (msg.value < bnbNeeded) revert PaymentInvalid();
-        uint256 received = _bnbToUsdt(bnbNeeded);
-        if (received < cost) revert SwapTooSmall();
-        _issue(id, shares, cost, received - cost, referrer);
+        (bool paidOk,) = treasury.call{value: bnbNeeded}("");
+        if (!paidOk) revert PayoutFailed();
+        emit Payment(msg.sender, treasury, 0, bnbNeeded);
+        _issue(id, shares, cost, referrer);
         uint256 change = msg.value - bnbNeeded;
         if (change > 0) {
             (bool ok,) = msg.sender.call{value: change}("");
@@ -409,21 +440,19 @@ contract BnagentMint is ReentrancyGuard {
         if (sharesMintedBy[id] + shares > quotaOf(id)) revert OverQuota();
     }
 
-    /// @dev Working copy of the pool for one transaction.
+    /// @dev Working copy of the pool for one transaction (used only after trading opens).
     struct Book {
-        uint256 u; // USDT reserve after this share
-        uint256 t; // token reserve after this share
-        uint256 u0; // reserves at the start of phase-2 work in this tx
+        uint256 u; // USDT reserve (no USDT is added by mints)
+        uint256 t; // token reserve after floor burns so far in this tx
+        uint256 u0; // reserves at the start of this tx
         uint256 t0;
         uint256 circ;
         uint256 supply;
-        uint256 addUsdt;
-        uint256 addTokens;
         uint256 burnTokens;
         uint256 buyerTokens;
     }
 
-    function _issue(uint256 id, uint256 shares, uint256 cost, uint256 surplusUsdt, address referrer) private {
+    function _issue(uint256 id, uint256 shares, uint256 cost, address referrer) private {
         sharesMintedBy[id] += shares;
         if (!hasPaid[id]) {
             hasPaid[id] = true;
@@ -431,37 +460,27 @@ contract BnagentMint is ReentrancyGuard {
         }
         uint256 firstShare = totalMinted + 1;
         uint256 lastShare = totalMinted + shares;
-        uint256 treasuryUsdt = surplusUsdt;
         Book memory b;
-        bool live = isOpen();
+        bool live = isOpen(); // cannot change inside this loop
         if (live) _loadBook(b);
 
         for (uint256 n = firstShare; n <= lastShare; n++) {
             uint256 price = sharePriceCents(n) * 1e16;
-            uint256 cut = price * TREASURY_BPS / 10_000;
-            treasuryUsdt += cut;
             totalPaid += price;
-            if (n <= OPEN_AT_SHARE) {
-                b.buyerTokens += TOKENS_PER_SHARE;
-                parkedUsdt += price - cut;
-                parkedTokens += POOL_TOKENS_PER_SHARE;
-                token.mint(address(this), POOL_TOKENS_PER_SHARE);
-                if (n == OPEN_AT_SHARE) {
-                    token.mint(msg.sender, b.buyerTokens);
-                    b.buyerTokens = 0;
-                    _openPool();
-                    live = true;
-                    _loadBook(b);
-                }
+            if (live) {
+                _liveShare(b, n, price);
             } else {
-                _phase2Share(b, n, price, price - cut);
+                b.buyerTokens += TOKENS_PER_SHARE;
+                if (n == OPEN_AT_SHARE) _mintLpTokens();
             }
         }
         totalMinted = lastShare;
 
         if (b.buyerTokens > 0) token.mint(msg.sender, b.buyerTokens);
-        if (live && b.addUsdt > 0) _commit(b);
-        if (treasuryUsdt > 0) usdt.safeTransfer(treasury, treasuryUsdt);
+        if (b.burnTokens > 0) {
+            token.burnPairInventory(b.burnTokens);
+            pair.sync();
+        }
         emit SharesMinted(msg.sender, id, firstShare, shares, cost);
 
         if (live && lastTaxSwapBlock != block.number && token.balanceOf(address(this)) > 0) {
@@ -472,6 +491,12 @@ contract BnagentMint is ReentrancyGuard {
         }
     }
 
+    function _mintLpTokens() private {
+        lpTokensMinted = true;
+        token.mint(treasury, LP_TOKENS);
+        emit LpTokensMinted(treasury, LP_TOKENS);
+    }
+
     function _loadBook(Book memory b) private view {
         (b.u, b.t) = poolReserves();
         b.u0 = b.u;
@@ -480,19 +505,14 @@ contract BnagentMint is ReentrancyGuard {
         b.supply = token.totalSupply();
     }
 
-    /// @dev Applies one phase-2 share to the working pool. All shares of the transaction are then
-    ///      written to the pair at once, which gives the same reserves as share-by-share.
-    function _phase2Share(Book memory b, uint256 n, uint256 price, uint256 lpUsdt) private {
+    /// @dev One share after trading opened: tokens at 99% of the pool price, then the floor-line burn.
+    ///      Mints add no liquidity, so only the token reserve changes (burns), written once per tx.
+    function _liveShare(Book memory b, uint256 n, uint256 price) private {
         uint256 buyerAmt = price * b.t * 10_000 / (b.u * BUY_AT_BPS);
-        uint256 lpTokens = (lpUsdt * b.t + b.u - 1) / b.u;
-        b.supply += buyerAmt + lpTokens;
+        b.supply += buyerAmt;
         if (b.supply > token.HARD_CAP()) revert SoldOut();
         b.buyerTokens += buyerAmt;
         b.circ += buyerAmt;
-        b.u += lpUsdt;
-        b.t += lpTokens;
-        b.addUsdt += lpUsdt;
-        b.addTokens += lpTokens;
 
         uint256 line = totalPaid * FLOOR_NUM / FLOOR_DEN;
         if (b.circ * b.u / b.t >= line) return;
@@ -509,29 +529,6 @@ contract BnagentMint is ReentrancyGuard {
         emit FloorBurn(n, burnAmt);
     }
 
-    function _commit(Book memory b) private {
-        usdt.safeTransfer(address(pair), b.addUsdt);
-        token.mint(address(pair), b.addTokens);
-        pair.mint(DEAD);
-        if (b.burnTokens > 0) token.burnPairInventory(b.burnTokens);
-        pair.sync();
-    }
-
-    function _openPool() private {
-        if (parkedUsdt != OPEN_USDT) revert PoolNotReady();
-        uint256 missing = OPEN_TOKENS - parkedTokens;
-        if (missing > 0) token.mint(address(this), missing);
-        parkedUsdt = 0;
-        parkedTokens = 0;
-        usdt.safeTransfer(address(pair), OPEN_USDT);
-        IERC20(address(token)).safeTransfer(address(pair), OPEN_TOKENS);
-        uint256 liquidity = pair.mint(DEAD);
-        token.openTrading();
-        pair.sync();
-        openedAt = block.timestamp;
-        emit PoolOpened(OPEN_USDT, OPEN_TOKENS, liquidity);
-    }
-
     // ------------------------------------------------------------------ BNB payment
 
     function _usdToBnb(uint256 usdAmount) private view returns (uint256) {
@@ -541,14 +538,6 @@ contract BnagentMint is ReentrancyGuard {
         if (px < feedMinAnswer || px > feedMaxAnswer) revert FeedInvalid();
         uint256 padded = usdAmount * (10_000 + BNB_PREMIUM_BPS) / 10_000;
         return (padded * 10 ** bnbUsdFeed.decimals() + px - 1) / px;
-    }
-
-    function _bnbToUsdt(uint256 bnbIn) private returns (uint256 out) {
-        IWrappedNative(wbnb).deposit{value: bnbIn}();
-        IERC20(wbnb).safeTransfer(address(bnbUsdtPair), bnbIn);
-        uint256 before = usdt.balanceOf(address(this));
-        _swapExact(bnbUsdtPair, wbnb, address(this));
-        out = usdt.balanceOf(address(this)) - before;
     }
 
     /// @dev Swaps whatever `tokenIn` balance the pair holds above its reserve.

@@ -3,7 +3,7 @@
 Independent fair-mint token on BNB Smart Chain for Binance Agentic Wallets holding a `.ai` Agent ID.
 **Not affiliated with Binance. No promise of profit. Not deployed yet; not audited.**
 
-- `src/` — `BnagentMint.sol` (mint, pricing, quotas, pool opening, floor line, tax conversion, admin/renounce) and `BnagentToken.sol` (BEP-20 with transfer rules and taxes).
+- `src/` — `BnagentMint.sol` (mint, pricing, quotas, 100% of payments to the treasury, 400B LP tokens to the treasury at share 10,000, one-time `openTrading()`, floor line, tax conversion, admin/renounce) and `BnagentToken.sol` (BEP-20 with transfer rules and taxes).
 - `test/BnagentFork.t.sol` — BSC mainnet fork tests (deploys through the real CREATE2 proxy, real Agent ID holders, Chainlink, PancakeSwap).
 - `script/` — mainnet wiring (`BscConfig.sol`) and the unsigned plan generator (`BuildPlan.s.sol`).
 - `deploy/bsc-mainnet-plan.json` — unsigned deployment calldata. Nothing has been broadcast.

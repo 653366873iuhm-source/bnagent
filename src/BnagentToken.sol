@@ -7,7 +7,9 @@ import {IV2Factory} from "./interfaces/IExternal.sol";
 /// @title BNAGENT token
 /// @notice BEP-20 created only by its mint contract (the contract that deploys it), never
 ///         beyond HARD_CAP. Rules, all fixed in code:
-///         - Before the official pool opens, nothing moves except tokens leaving the mint contract.
+///         - Until the treasury calls openTrading() on the mint contract, nothing moves except tokens
+///           leaving the mint contract and the treasury's transfers into the official pair (so it
+///           can add the liquidity itself). Once open, it can never be locked again.
 ///         - After opening, wallet-to-wallet transfers are free of tax.
 ///         - Buying from the official BNAGENT/USDT pair: 1% stays with the mint contract.
 ///         - Selling into the official pair: 1% goes to the dead address and 1% to the mint contract.
@@ -29,6 +31,8 @@ contract BnagentToken is ERC20 {
     address public immutable pair;
     address public immutable v4PoolManager;
     address public immutable v4Vault;
+    /// @notice Project treasury: the only address allowed to move BNAGENT (into the official pair) before trading opens.
+    address public immutable treasury;
 
     bool public tradingOpen;
     bool public blockingRetired;
@@ -44,10 +48,11 @@ contract BnagentToken is ERC20 {
     error ReceiverIsPool();
     error CapExceeded();
 
-    constructor(address usdt_, address factory_, address poolManager_, address vault_)
+    constructor(address usdt_, address factory_, address poolManager_, address vault_, address treasury_)
         ERC20("BNAGENT", "BNAGENT")
     {
-        if (usdt_ == address(0) || factory_ == address(0)) revert ZeroAddr();
+        if (usdt_ == address(0) || factory_ == address(0) || treasury_ == address(0)) revert ZeroAddr();
+        treasury = treasury_;
         minter = msg.sender;
         usdt = usdt_;
         v4PoolManager = poolManager_;
@@ -133,7 +138,9 @@ contract BnagentToken is ERC20 {
         }
         address m = minter;
         if (!tradingOpen) {
-            if (from != m) revert TransfersLocked();
+            // Before opening: the mint contract may hand out tokens, and the treasury may move its
+            // tokens into the official pair to add liquidity. Nothing else moves.
+            if (from != m && !(from == treasury && to == pair)) revert TransfersLocked();
             super._update(from, to, value);
             return;
         }

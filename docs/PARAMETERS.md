@@ -1,7 +1,7 @@
 # BNAGENT parameters and scaling math
 
 Reference mechanism: the $JAGENT mint/token (BSC 0x3643…2aB8 / 0x8e64…5aE15, verified source read from Sourcify).
-BNAGENT re-implements the same mechanism in its own code. Only these values differ (user-decided):
+BNAGENT re-implements the mechanism in its own code. These values differ (user-decided), and the funds/liquidity model differs as described in the next section:
 
 | Parameter | Reference | BNAGENT | How |
 |---|---|---|---|
@@ -16,13 +16,29 @@ BNAGENT re-implements the same mechanism in its own code. Only these values diff
 | Pool minimum token reserve | 11,666,666,667 | **116,666,667** | × cap ratio 4.44T / 444T = 1/100 |
 | Tax swap cap | 10 bps of pool token reserve | **10 bps** (unchanged) | already relative to the pool, so it scales by itself; absolute size shrinks with the pool |
 
+## Funds and liquidity (user decision 2026-10-29 23:08 CST — replaces the reference's auto-LP)
+
+| Item | Reference / earlier BNAGENT | BNAGENT now |
+|---|---|---|
+| Mint payment split | 80% to pool (LP to dead), 20% treasury | **100% to the treasury** (0x49E6…9BCE) in the same tx; the mint contract never holds proceeds |
+| USDT payment | transferFrom buyer → mint | `transferFrom(buyer → treasury)` directly |
+| BNB payment | Chainlink quote, swapped to USDT on WBNB/USDT V2, surplus USDT to treasury | Chainlink quote (+1%) **forwarded to the treasury as BNB, no swap**; excess `msg.value` refunded. Chosen as the cleaner option: no swap slippage/sandwich exposure, one fewer external dependency in the mint path. `totalPaid` still counts the USD table price. |
+| Pool tokens | 40M per share parked in the mint contract, 400B paired with 8,000 USDT at share 10,000 | no parking; the tx that mints share 10,000 mints **LP_TOKENS = 400,000,000,000 BNAGENT to the treasury** |
+| Pool creation | auto `pair.mint(dead)` at share 10,000 | none. The official BNAGENT/USDT V2 pair is still created (empty) by the token constructor and is the only pool accepted. The treasury adds LP itself (router `addLiquidity`, or direct transfer + `pair.mint`) |
+| LP tokens | sent to 0x…dEaD | held by the treasury (not locked, not burned) |
+| Trading start | same tx as share 10,000 | treasury calls **`openTrading()`** (one-time, irreversible): reverts unless `totalMinted ≥ 10,000` AND the official pair has both reserves > 0 AND LP totalSupply > 0. View: `canOpenTrading()` |
+| Transfers before trading | only from the mint contract | only from the mint contract, **plus treasury → official pair** (needed so the treasury can add LP while transfers are locked) |
+| Tokens per share | 50M through share 10,000, then pool price / 0.99 | 50M for every share minted **before `openTrading()`** (incl. 10,001+ at table prices); pool price / 0.99 after |
+| Phase-2 LP adds | 80% of each payment paired at pool price | none (mints never add liquidity) |
+| Floor line | burns pool inventory + sync | unchanged formula, burns pool inventory + `sync()`, **only after `openTrading()`**; needs no contract USDT |
+| renounce() | any time | only after `openTrading()` (else `TradingNotOpen`); `openTrading()` itself is not an admin power and is unaffected |
+
 Unchanged: Agent ID gate (handleOf + ownerOf on SPACE ID registry 0x60B9…022F), base 10 / +1 invite (first paid mint) / +1 per social task
-(FOLLOW, TWEET, TELEGRAM via EIP-712 signer), max 10 per tx, self-invite ignored, 50M tokens per share pre-pool (40M parked for pool),
-pool opens on share 10,000 with 8,000 USDT + 400B tokens and LP to 0x…dEaD, post-pool buyer price = pool price / 0.99,
-80/20 split, BNB via Chainlink BNB/USD (+1%, heartbeat 3600 s, bounds $50–$50,000) swapped on the WBNB/USDT V2 pair with refund,
-buy 1% / sell 1% burn + 1% fee / wallet 0%, no transfers before open, other pairs + V4 PoolManager + Infinity Vault rejected,
-routers (Pancake V2, Pancake Smart Router, Binance DEX router) never blockable, max +0.8% price per tx from floor burns,
-tax → BNB once per block, admin pause + pool block until `renounce()`.
+(FOLLOW, TWEET, TELEGRAM via EIP-712 signer), max 10 per tx, self-invite ignored, 30,000 shares, price table (47,400 USDT), hard cap 4.44T,
+post-open buyer price = pool price / 0.99, BNB priced via Chainlink BNB/USD (+1%, heartbeat 3600 s, bounds $50–$50,000),
+buy 1% / sell 1% burn + 1% fee / wallet 0%, other pairs + V4 PoolManager + Infinity Vault rejected,
+routers (Pancake V2, Pancake Smart Router, Binance DEX router) never blockable, max +0.8% price per tx from floor burns, pool min reserve,
+tax → BNB once per block (still uses the WBNB/USDT V2 pair), admin pause + pool block until `renounce()`.
 
 Differences in structure (not in rules):
 - No migration/snapshot/seed logic (skipped by instruction).
@@ -32,6 +48,9 @@ Differences in structure (not in rules):
 - Extra read-only views for the site/agents: `overview()`, `walletStatus(address)`, `agentIdOf(address)`, `domainSeparator()`.
 - Function selectors for `mint`, `mintWithBnb`, `bnbQuote` match the reference, so existing agent tooling works.
 
-Fork-test outcome at sell-out (30,000 shares, all synthetic 10-share mints): total supply ≈ 2.18T (cap 4.44T), pool ≈ 37,945 USDT /
-540.2B BNAGENT, dead ≈ 425.4B, circulating ≈ 1.217T whose pool value (85,476 USDT) sits on the floor line (85,477 USDT);
-every phase-2 mint triggered a floor burn (capped at +0.8%/tx). Treasury received 9,480 USDT (20%).
+Fork-test outcome at sell-out (30,000 shares; treasury simulated adding 8,000 USDT + 400B at share 10,050 then opening; all other mints synthetic
+10-share mints): total supply ≈ 1.618T (cap 4.44T), pool ≈ 8,025 USDT / 114.45B BNAGENT (pool price ≈ 3.5× the opening price), dead ≈ 284.3B,
+circulating ≈ 1.219T whose pool value (85,476 USDT) sits on the floor line (85,477 USDT). Floor burns hit 994 of 1,000 mint txs in 10,001–20,000
+and all 1,000 in 20,001–30,000. Treasury received every USDT payment (47,400 minus the USD value of BNB-paid shares, which arrived as BNB).
+Note: without LP adds, the pool USDT stays at what the team deposits, so the floor-line "value" of circulating supply is a paper number far above
+real pool depth (here 85k vs 8k USDT).

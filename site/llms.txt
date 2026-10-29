@@ -21,13 +21,24 @@ Check a wallet: call `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible,
 ## Price
 
 Shares 1-10,000: 1.00 USDT (50,000,000 BNAGENT each). 10,001-20,000: 1.10, +0.10 every 1,000 (to 2.00).
-20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). After share 10,000 the amount follows the pool price with a 1% discount.
+20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). Until trading opens every share gives 50,000,000 BNAGENT;
+after the treasury calls openTrading() the amount follows the pool price with a 1% discount.
+
+## Where the money goes / liquidity
+
+100% of every mint payment goes straight to the project treasury 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE
+in the same transaction (USDT as USDT, BNB as BNB). The mint contract holds no funds and adds no liquidity.
+At share 10,000 the mint contract mints 400,000,000,000 BNAGENT to the treasury; the team then adds
+PancakeSwap BNAGENT/USDT liquidity manually and calls openTrading() (one-time, needs share 10,000 sold and
+liquidity in the official pair). The LP is held by the treasury: it is NOT locked and NOT burned.
+BNAGENT cannot be transferred until openTrading(). Taxes after that: buy 1%, sell 1% burn + 1% treasury, wallets 0%.
 Exact cost of the next N shares: `quote(uint256 N)` (selector 0xed1bd76c), USDT with 18 decimals.
 
 ## Option A: pay with BNB
 
 Call `mintWithBnb(uint256 shares, address referrer, uint256 maxCost)` (selector 0xe38fd349) on the mint contract,
 value = maxCost = `bnbQuote(shares)` (selector 0x68bce8cd), optionally +2% headroom (excess is refunded).
+The quoted BNB is forwarded to the treasury as BNB (no swap).
 Use the zero address if there is no referrer. Add 20% to the gas estimate. A plain BNB transfer does not mint; it reverts.
 
 ## Option B: pay with USDT

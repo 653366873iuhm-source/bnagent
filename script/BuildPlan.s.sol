@@ -26,7 +26,7 @@ contract BuildPlan is Script {
         vm.serializeBytes32(o, "initCodeHash", keccak256(init));
 
         string memory t1 = "tx1";
-        vm.serializeString(t1, "description", "Deploy BnagentMint via the CREATE2 deployer proxy (also deploys BnagentToken and creates the PancakeSwap BNAGENT/USDT pair). Mint starts PAUSED.");
+        vm.serializeString(t1, "description", "Deploy BnagentMint via the CREATE2 deployer proxy (also deploys BnagentToken and creates the official, empty PancakeSwap BNAGENT/USDT pair). Mint starts PAUSED. No liquidity is added by contracts: 100% of mint payments go to the treasury; at share 10,000 the treasury receives 400B BNAGENT, adds LP itself, then calls openTrading().");
         vm.serializeAddress(t1, "to", BscConfig.CREATE2_PROXY);
         vm.serializeString(t1, "value", "0");
         vm.serializeAddress(t1, "expectedAddress", mintAddr);
