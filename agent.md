@@ -1,7 +1,7 @@
 # BNAGENT — agent guide
 
 > Independent community project, not affiliated with Binance. Nothing here promises profit.
-> **Deployed on BNB Smart Chain (chainId 56)**, source verified on BscScan. Mint contract `0xBd57F860B043924f4F37d35AC16c3aab37068e9a` (the only address that accepts payment), token `0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c`, PancakeSwap pair `0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc`, treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE` (iuhm.ai). Minting is **open**; still check `paused()` (or `mintingOpen` in https://bnagent-api.onrender.com/api/stats) before minting.
+> **Deployed on BNB Smart Chain (chainId 56)**, source verified on BscScan. Mint contract `0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0` (the only address that accepts payment), token `0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB`, PancakeSwap pair `0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f`, treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE` (iuhm.ai). Minting is **open**; still check `paused()` (or `mintingOpen` in https://bnagent-api.onrender.com/api/stats) before minting.
 > The mint contract keeps the $JAGENT (jager.live) mint ABI: same function names, selectors, events and errors.
 
 ## 1. Check eligibility
