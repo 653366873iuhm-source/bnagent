@@ -1,0 +1,32 @@
+Compiling 1 files with Solc 0.8.24
+Solc 0.8.24 finished in 2.25s
+Compiler run successful!
+
+Ran 11 tests for test/BnagentFork.t.sol:BnagentForkTest
+[PASS] test_BnbMintWithRefund() (gas: 472541)
+[PASS] test_FullFlow() (gas: 582766297)
+Logs:
+  mint txs with floor burn, shares 10,001-20,000: 999
+  mint txs with floor burn, shares 20,001-30,000: 1000
+  final pool USDT (wei): 37945038539149410240813
+  final pool BNAGENT (tokens): 540162163499
+  final total supply (tokens): 2182320839301
+  final circulating (tokens): 1216797848336
+  dead balance (tokens): 425360827466
+  circ value at pool price (USDT): 85476
+  floor line (USDT): 85477
+  treasury USDT gained: 9480
+  treasury BNB gained (wei): 1000277584076286
+
+[PASS] test_HardCapEnforcedInToken() (gas: 16069)
+[PASS] test_InviteAndSelfInvite() (gas: 671104)
+[PASS] test_MintRules() (gas: 579762)
+[PASS] test_PausedAtDeployAndAdmin() (gas: 305530)
+[PASS] test_PlainTransfersDoNotMint() (gas: 15506)
+[PASS] test_PriceTable() (gas: 41545495)
+[PASS] test_RealAgentIdsResolve() (gas: 32298)
+[PASS] test_SocialTasks() (gas: 275037)
+[PASS] test_TransfersLockedBeforeOpen() (gas: 295169)
+Suite result: ok. 11 passed; 0 failed; 0 skipped; finished in 119.89s (118.53s CPU time)
+
+Ran 1 test suite in 119.90s (119.89s CPU time): 11 tests passed, 0 failed, 0 skipped (11 total tests)
