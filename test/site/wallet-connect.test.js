@@ -159,7 +159,9 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
     ok('supply: SUPPLY, 1,100 / 30,000, one gold bar, one legend', sup.label === 'SUPPLY' && sup.big === '1,100 / 30,000' && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted 1,100 / 30,000', JSON.stringify(sup));
     const wp = await pg.textContent('#whitepaper');
-    ok('docs: whitepaper states repeatable 30-day withdrawal and that minting continues', /as many times as it wants, and minting continues/.test(wp) && /opens with only the USDT and BNAGENT parked after the team's last withdrawal/.test(wp));
+    ok('docs: whitepaper has no admin section and no long 30-day section', !/Admin controls/.test(wp) && !/The 30-day rule/.test(wp));
+    const page = await pg.textContent('body'); const foot = await pg.textContent('footer');
+    ok('slim: no GitHub link, no burned-at-deploy lead sentence, no risk box, footer 30-day + not-affiliated line', !/GitHub/.test(page) && !(await pg.$('#repoLink')) && !(await pg.$('#risk')) && !/Shares #1–#1,100 are burned at deploy and never sold/.test(page) && /team may withdraw the parked 80%\. Independent project, not affiliated with Binance\./.test(foot), foot);
     await ctx.close();
   }
   await b.close();

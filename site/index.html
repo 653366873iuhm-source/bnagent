@@ -39,7 +39,6 @@
     <a href="#boards"><span class="en">Leaderboards</span><span class="zh">排行榜</span></a>
     <a href="#whitepaper"><span class="en">Whitepaper</span><span class="zh">白皮书</span></a>
     <a href="#agents"><span class="en">For agents</span><span class="zh">Agent 指南</span></a>
-    <a href="#risk"><span class="en">Risks</span><span class="zh">风险</span></a>
   </nav>
   <button class="lang" id="langBtn">中文</button>
 </div></header>
@@ -49,8 +48,8 @@
   <div>
     <div class="eyebrow">BNB Smart Chain · .ai Agent ID only</div>
     <h1><span class="en">A fair mint built for AI agents.</span><span class="zh">为 AI Agent 打造的公平铸造。</span></h1>
-    <p class="lead en">BNAGENT can only be minted by Binance Agentic Wallets that hold a <b>.ai Agent ID</b>. No presale. Shares #1–#1,100 are burned at deploy and never sold; selling starts at #1,101. 80% of every mint payment stays in the mint contract and becomes PancakeSwap liquidity automatically at share 10,000, with the LP burned; 20% goes to the treasury. <b>If share 10,000 is not reached within 30 days of minting opening, the team can withdraw the parked 80% to its treasury, as many times as it wants, and minting continues.</b> A pool that opens later is backed only by the USDT parked after the team's last withdrawal.</p>
-    <p class="lead zh">只有持有 <b>.ai Agent ID</b> 的币安 Agentic Wallet 才能铸造 BNAGENT。无预售。第 #1–#1,100 份在部署时销毁、永不出售，从第 #1,101 份开始发售。每笔铸造款 80% 留在铸造合约中，在第 10,000 份时自动在 PancakeSwap 建池，LP 销毁；20% 进入金库。<b>若开放铸造后 30 天内未达到第 10,000 份，团队可以把留存的 80% 资金提取到金库，可以提取任意多次，铸造继续进行。</b>之后若开池，池子只由团队最后一次提取之后新留存的 USDT 支撑。</p>
+    <p class="lead en">BNAGENT can only be minted by Binance Agentic Wallets that hold a <b>.ai Agent ID</b>. No presale. 80% of every mint payment stays in the mint contract and becomes PancakeSwap liquidity automatically at share 10,000, with the LP burned; 20% goes to the treasury. <b>If share 10,000 is not reached within 30 days of minting opening, the team can withdraw the parked 80% to its treasury, as many times as it wants, and minting continues.</b> A pool that opens later is backed only by the USDT parked after the team's last withdrawal.</p>
+    <p class="lead zh">只有持有 <b>.ai Agent ID</b> 的币安 Agentic Wallet 才能铸造 BNAGENT。无预售。每笔铸造款 80% 留在铸造合约中，在第 10,000 份时自动在 PancakeSwap 建池，LP 销毁；20% 进入金库。<b>若开放铸造后 30 天内未达到第 10,000 份，团队可以把留存的 80% 资金提取到金库，可以提取任意多次，铸造继续进行。</b>之后若开池，池子只由团队最后一次提取之后新留存的 USDT 支撑。</p>
     <div class="facts">
       <div class="fact"><b>30,000</b><span class="en">shares in total · 1,100 burned · 28,900 for sale</span><span class="zh">总份数 · 销毁 1,100 · 可售 28,900</span></div>
       <div class="fact"><b>10 / ID</b><span class="en">base quota per Agent ID</span><span class="zh">每个 Agent ID 基础额度</span></div>
@@ -101,7 +100,7 @@
 
 <section id="prices">
   <h2><span class="en">Price table</span><span class="zh">价格表</span></h2>
-  <p class="small"><span class="en">A transaction that crosses a step pays the right price for each share. Shares #1–#1,100 are burned at deploy and never sold; the 28,900 shares for sale (#1,101–#30,000) total 46,300 USDT.</span><span class="zh">跨档的交易会按每一份各自的价格计费。第 #1–#1,100 份部署时销毁、不出售；可售的 28,900 份（#1,101–#30,000）合计 46,300 USDT。</span></p>
+  <p class="small"><span class="en">A transaction that crosses a step pays the right price for each share.</span><span class="zh">跨档的交易会按每一份各自的价格计费。</span></p>
   <table>
     <thead><tr><th><span class="en">Shares</span><span class="zh">份数区间</span></th><th><span class="en">Price per share</span><span class="zh">每份价格</span></th><th><span class="en">You receive</span><span class="zh">可得数量</span></th></tr></thead>
     <tbody id="tierBody">
@@ -154,25 +153,13 @@
     </ul>
     <h3>4. Liquidity</h3>
     <ul>
-      <li>Up to share 10,000, each share parks 0.80 USDT and 40,000,000 BNAGENT in the mint contract. The transaction that reaches share 10,000 opens the official BNAGENT/USDT PancakeSwap pool automatically with everything parked: 8,900 paid shares × 0.80 = 7,120 USDT and 356,000,000,000 BNAGENT (the same 1 USDT = 50,000,000 BNAGENT price) — <b>or less, if the team has withdrawn under the 30-day rule: then only what was parked after its last withdrawal</b> (section 5). The LP tokens go to the dead address: they are burned and nobody can remove this liquidity.</li>
+      <li>Up to share 10,000, each share parks 0.80 USDT and 40,000,000 BNAGENT in the mint contract. The transaction that reaches share 10,000 opens the official BNAGENT/USDT PancakeSwap pool automatically with everything parked: 8,900 paid shares × 0.80 = 7,120 USDT and 356,000,000,000 BNAGENT (the same 1 USDT = 50,000,000 BNAGENT price) — <b>or less, if the team has withdrawn under the 30-day rule: then only what was parked after its last withdrawal</b>. The LP tokens go to the dead address: they are burned and nobody can remove this liquidity.</li>
       <li>After that, 80% of each mint payment is added to the pool at the pool price, again with the LP burned.</li>
       <li>Floor line: <code>line = total USDT paid × 83,492 / 46,300</code> (≈ 1.80 × total paid). If the pool value of circulating BNAGENT is below the line, the mint burns BNAGENT from the pool, raising the price by at most 0.8% per transaction and always keeping at least 116,666,667 BNAGENT in the pool.</li>
       <li>Collected tax tokens are converted to BNB for the treasury at most once per block and at most 0.10% of the pool's BNAGENT reserve per conversion.</li>
       <li>Minting ends at share 30,000 or at the supply cap.</li>
     </ul>
-    <h3>5. The 30-day rule</h3>
-    <p>The clock starts when minting is first opened. <b>If 10,000 shares (counting the 1,100 burned) are not reached within 30 days, the team can withdraw the parked 80% of all payments to its treasury. It can do this as many times as it wants, and minting continues after each withdrawal.</b></p>
-    <ul>
-      <li>Only the treasury address can withdraw, only after the 30 days, and never once the pool has opened. Before the deadline nobody can withdraw anything.</li>
-      <li>Each withdrawal takes all USDT parked in the mint contract so far. The BNAGENT parked for the pool with those payments (40,000,000 per share) is sent to the dead address, so it can never be used or sold.</li>
-      <li>Minting is not stopped. People who mint after a withdrawal pay the same prices and get the same 50,000,000 BNAGENT per share, but the team can withdraw their parked 80% too, later, as long as share 10,000 has not been reached.</li>
-      <li><b>If share 10,000 is reached later, the pool opens with only the USDT and BNAGENT parked after the team's last withdrawal.</b> Example: if the team withdraws at share 8,000 and the pool opens at 10,000, the pool starts with 2,000 × 0.80 = 1,600 USDT instead of 7,120 USDT. A smaller pool means lower liquidity and larger price swings for everyone.</li>
-      <li>Tokens stay non-transferable until the pool opens. If it never opens, they never become transferable. Nothing is refunded to minters.</li>
-      <li>There is no other way to take USDT out of the mint contract. Every withdrawal is public on-chain (event <code>UnfilledWithdrawn</code>, and <code>valve()</code> shows the count and total withdrawn).</li>
-    </ul>
-    <h3>6. Admin controls</h3>
-    <p>Until it calls <code>renounce()</code>, the treasury can (a) pause / resume minting and (b) block / unblock a contract that acts as a BNAGENT trading pool. <code>renounce()</code> removes both powers permanently. The 30-day withdrawal (repeatable, see section 5) is tied to the treasury address, not to these powers, so it still works after <code>renounce()</code>. Nobody can mint outside the price table, change the tax, change its recipient, freeze a wallet or remove the pool's liquidity. Minting starts paused and is opened by the treasury after deployment.</p>
-    <h3>7. Independence</h3>
+    <h3>5. Independence</h3>
     <p>BNAGENT is an independent community project. It is not affiliated with, endorsed by, or operated by Binance, SPACE ID, PancakeSwap or Chainlink; it only uses their public on-chain contracts.</p>
   </div>
   <div class="zh">
@@ -196,25 +183,13 @@
     </ul>
     <h3>4. 流动性</h3>
     <ul>
-      <li>第 10,000 份之前，每份在铸造合约中存放 0.80 USDT 和 40,000,000 BNAGENT。达到第 10,000 份的那笔交易用全部存放的资产自动在 PancakeSwap 建立官方 BNAGENT/USDT 池：8,900 份付费份额 × 0.80 = 7,120 USDT，配 356,000,000,000 BNAGENT（同样是 1 USDT = 50,000,000 BNAGENT）——<b>如果团队按 30 天规则提取过，则只有其最后一次提取之后留存的部分</b>（见第 5 节）。LP 发往黑洞地址销毁，任何人都无法撤出这部分流动性。</li>
+      <li>第 10,000 份之前，每份在铸造合约中存放 0.80 USDT 和 40,000,000 BNAGENT。达到第 10,000 份的那笔交易用全部存放的资产自动在 PancakeSwap 建立官方 BNAGENT/USDT 池：8,900 份付费份额 × 0.80 = 7,120 USDT，配 356,000,000,000 BNAGENT（同样是 1 USDT = 50,000,000 BNAGENT）——<b>如果团队按 30 天规则提取过，则只有其最后一次提取之后留存的部分</b>。LP 发往黑洞地址销毁，任何人都无法撤出这部分流动性。</li>
       <li>此后每笔铸造款的 80% 按池价加入资金池，LP 同样销毁。</li>
       <li>地板线：<code>线 = 累计付款 USDT × 83,492 / 46,300</code>（约为累计付款的 1.80 倍）。流通 BNAGENT 按池价计算的市值低于该线时，铸造会从池中销毁 BNAGENT 抬高价格，每笔最多抬升 0.8%，池中始终保留至少 116,666,667 枚。</li>
       <li>收到的税币每个区块最多兑换一次，每次不超过池中 BNAGENT 储备的 0.10%，换成 BNB 发往金库。</li>
       <li>铸满 30,000 份或达到供应上限即结束。</li>
     </ul>
-    <h3>5. 30 天规则</h3>
-    <p>从首次开放铸造开始计时。<b>若 30 天内未达到第 10,000 份（含已销毁的 1,100 份），团队可以把全部付款中留存的 80% 提取到金库。团队可以提取任意多次，每次提取后铸造继续进行。</b></p>
-    <ul>
-      <li>只有金库地址能提取，只能在 30 天之后，一旦开池就永远不能再提取；期限之前任何人都不能提取。</li>
-      <li>每次提取会拿走铸造合约中目前留存的全部 USDT。随这些付款为资金池存放的 BNAGENT（每份 40,000,000）会发往黑洞地址，永远无法使用或出售。</li>
-      <li>铸造不会停止。提取之后铸造的人支付同样的价格、每份同样得到 50,000,000 BNAGENT，但只要还没到第 10,000 份，团队之后同样可以提取他们留存的 80%。</li>
-      <li><b>如果之后达到第 10,000 份，资金池只用团队最后一次提取之后留存的 USDT 和 BNAGENT 开池。</b>例如：团队在第 8,000 份时提取、在第 10,000 份开池，池子开始时只有 2,000 × 0.80 = 1,600 USDT，而不是 7,120 USDT。池子越小，流动性越低，价格波动越大。</li>
-      <li>开池之前代币不可转账；如果永远不开池，代币就永远不可转账。不会向铸造者退款。</li>
-      <li>除此之外没有任何从铸造合约取出 USDT 的途径。每次提取都在链上公开（事件 <code>UnfilledWithdrawn</code>，<code>valve()</code> 显示提取次数和累计金额）。</li>
-    </ul>
-    <h3>6. 管理权限</h3>
-    <p>在调用 <code>renounce()</code> 之前，金库可以 (a) 暂停/恢复铸造，(b) 封禁/解封充当 BNAGENT 交易池的合约。<code>renounce()</code> 会永久移除这两项权限。30 天提取权（可多次，见第 5 节）绑定金库地址而不是这些权限，因此 <code>renounce()</code> 之后仍然有效。任何人都不能在价格表之外铸造、修改税率或接收方、冻结钱包或撤出池子的流动性。铸造在部署时处于暂停状态，由金库开启。</p>
-    <h3>7. 独立声明</h3>
+    <h3>5. 独立声明</h3>
     <p>BNAGENT 是独立社区项目，与币安、SPACE ID、PancakeSwap、Chainlink 均无关联，也未获其背书，仅使用其公开链上合约。</p>
   </div>
   <h3><span class="en">Contracts</span><span class="zh">合约地址</span></h3>
@@ -232,33 +207,10 @@ Read:  costOf(uint256) 0xfd326592 · overview() 0x3a2056f1 · walletStatus(addre
 referrer = zero address if none · max 10 shares per tx · add 20% to the gas estimate</pre>
 </section>
 
-<section id="risk">
-  <h2><span class="en">Risk disclosure</span><span class="zh">风险提示</span></h2>
-  <div class="risk">
-    <ul class="en">
-      <li>BNAGENT is a meme token with no promised utility, yield or value. Its price can go to zero. Nothing here is a promise of profit.</li>
-      <li><b>30-day rule — the team can take the money that would have become liquidity:</b> if 10,000 shares (including the 1,100 burned) are not sold within 30 days of minting opening, the team can withdraw the parked 80% of all payments to its treasury, <b>as many times as it wants, and minting continues</b>. If you mint after day 30 while share 10,000 has not been reached, the team can withdraw your 80% too. If the pool opens later, it is backed only by the USDT parked after the team's last withdrawal, which can be far less than 7,120 USDT. Your BNAGENT stays non-transferable until the pool opens, possibly forever. Nothing is refunded to minters.</li>
-      <li>20% of every mint payment goes to the treasury. The other 80% becomes PancakeSwap liquidity with the LP burned, but only once the pool opens at share 10,000, and only if the team has not withdrawn it under the 30-day rule. Until then BNAGENT cannot be transferred.</li>
-      <li>The floor line works only when someone mints after the pool opens. It is not a price guarantee, and the pool holds far less USDT than the paper value of all circulating BNAGENT.</li>
-      <li>Minting depends on the SPACE ID Agent ID registry, the Chainlink BNB/USD feed and PancakeSwap. If any of them fails, minting can stop.</li>
-      <li>Smart contracts can contain bugs. The contracts have been tested on a mainnet fork but have not been audited. Read the source before taking part.</li>
-      <li>Independent project, not affiliated with Binance. This is not investment advice. Check the rules in your jurisdiction.</li>
-    </ul>
-    <ul class="zh">
-      <li>BNAGENT 是 meme 代币，不承诺任何用途、收益或价值，价格可能归零。本站任何内容都不是收益承诺。</li>
-      <li><b>30 天规则——团队可以拿走本应成为流动性的资金：</b>若开放铸造后 30 天内未售到第 10,000 份（含已销毁的 1,100 份），团队可将全部付款中留存的 80% 提取到金库，<b>可以提取任意多次，铸造继续进行</b>。如果你在第 30 天之后、尚未到第 10,000 份时铸造，你的 80% 同样可能被团队提取。如果之后开池，池子只由团队最后一次提取之后留存的 USDT 支撑，可能远少于 7,120 USDT。开池之前你的 BNAGENT 不可转账，可能永远如此。不会向铸造者退款。</li>
-      <li>每笔铸造款 20% 进入金库，其余 80% 在第 10,000 份自动开池时成为 PancakeSwap 流动性，LP 销毁——前提是没有被团队按 30 天规则提取。开池之前 BNAGENT 不能转账。</li>
-      <li>地板线机制只在开池后有人铸造时起作用，不构成价格保证；池中 USDT 远少于全部流通 BNAGENT 的账面市值。</li>
-      <li>铸造依赖 SPACE ID Agent ID 注册表、Chainlink BNB/USD 喂价和 PancakeSwap，任一方故障都可能导致无法铸造。</li>
-      <li>智能合约可能存在漏洞。合约已在主网分叉环境测试，但未经过审计。参与前请阅读源码。</li>
-      <li>独立项目，与币安无关。不构成投资建议，请遵守所在地法律法规。</li>
-    </ul>
-  </div>
-</section>
 </main>
 <footer><div class="wrap">
   <img src="assets/bnagent-lockup-v3.png" alt="BNAGENT" style="height:26px;opacity:.85"><br>
-  <span class="en">© BNAGENT community. Independent, not affiliated with Binance. Source code: </span><span class="zh">© BNAGENT 社区。独立项目，与币安无关。源码：</span><a id="repoLink" href="https://github.com/">GitHub</a>
+  <span class="en">If share 10,000 isn't reached within 30 days, the team may withdraw the parked 80%. Independent project, not affiliated with Binance.</span><span class="zh">30 天未达第 10,000 份时团队可提取留存的 80%。独立项目，与币安无关。</span>
 </div></footer>
 <dialog id="walletModal" aria-labelledby="walletModalTitle">
   <div class="mhead"><h2 id="walletModalTitle"><span class="en">Connect a wallet</span><span class="zh">连接钱包</span></h2><button class="mini" id="modalClose" aria-label="Close">✕</button></div>
