@@ -166,7 +166,7 @@
     const row = (k, v) => `<div class="row"><span>${k}</span><span class="mono addr">${isAddr(v) ? `<a href="${C.explorer}/address/${v}" target="_blank" rel="noopener">${v}</a>` : T("not deployed yet", "尚未部署")}</span></div>`;
     $("addrBox").innerHTML = row(T("Mint contract", "铸造合约"), C.mint) + row(T("BNAGENT token", "BNAGENT 代币"), C.token) + row(T("BNAGENT/USDT pair", "BNAGENT/USDT 交易对"), C.pair) + row("USDT", C.usdt) + row(T("Agent ID registry", "Agent ID 注册表"), C.agentRegistry) + row(T("Treasury (Agentic Wallet)", "金库（Agentic Wallet）"), C.treasury);
     const sx = C.social || {};
-    $("socialInfo").textContent = sx.x || sx.telegram ? [sx.x ? "X: @" + sx.x : "", sx.telegram ? "Telegram: " + sx.telegram : ""].filter(Boolean).join(" · ") : T("Official X / Telegram accounts will be announced.", "官方 X / Telegram 账号待公布。");
+    $("socialInfo").textContent = sx.x ? "X: @" + sx.x : "";
     renderWallet();
   }
 

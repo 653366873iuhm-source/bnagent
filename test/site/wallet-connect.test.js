@@ -162,6 +162,8 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('docs: whitepaper has no admin section and no long 30-day section', !/Admin controls/.test(wp) && !/The 30-day rule/.test(wp));
     const page = await pg.textContent('body'); const foot = await pg.textContent('footer');
     ok('slim: no GitHub link, no burned-at-deploy lead sentence, no risk box, footer 30-day + not-affiliated line', !/GitHub/.test(page) && !(await pg.$('#repoLink')) && !(await pg.$('#risk')) && !/Shares #1–#1,100 are burned at deploy and never sold/.test(page) && /team may withdraw the parked 80%\. Independent project, not affiliated with Binance\./.test(foot), foot);
+    const xl = await pg.$$eval('a[href="https://x.com/bnAgent_"]', l => l.map(e => e.id));
+    ok('social: X link https://x.com/bnAgent_ in header and footer, no Telegram on the page', xl.includes('xLinkHead') && xl.includes('xLinkFoot') && !/telegram|t\.me\//i.test(await pg.content()), JSON.stringify(xl));
     await ctx.close();
   }
   await b.close();

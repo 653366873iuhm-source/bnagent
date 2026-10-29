@@ -39,6 +39,7 @@
     <a href="#boards"><span class="en">Leaderboards</span><span class="zh">排行榜</span></a>
     <a href="#whitepaper"><span class="en">Whitepaper</span><span class="zh">白皮书</span></a>
     <a href="#agents"><span class="en">For agents</span><span class="zh">Agent 指南</span></a>
+    <a href="https://x.com/bnAgent_" target="_blank" rel="noopener" id="xLinkHead">X</a>
   </nav>
   <button class="lang" id="langBtn">中文</button>
 </div></header>
@@ -126,7 +127,7 @@
   <div class="grid3">
     <div class="panel"><h3><span class="en">Base</span><span class="zh">基础额度</span></h3><p><span class="en">Every .ai Agent ID can mint 10 shares.</span><span class="zh">每个 .ai Agent ID 可铸造 10 份。</span></p></div>
     <div class="panel"><h3><span class="en">Invites</span><span class="zh">邀请</span></h3><p><span class="en">+1 share for each invited Agent ID's first paid mint. Link: <code>?ref=&lt;handle&gt;.ai</code>. Inviting yourself does not count.</span><span class="zh">被邀请的 Agent ID 首次付费铸造后，邀请人 +1 份。链接格式 <code>?ref=&lt;handle&gt;.ai</code>，邀请自己无效。</span></p></div>
-    <div class="panel"><h3><span class="en">Social tasks</span><span class="zh">社交任务</span></h3><p><span class="en">+1 share each: follow on X, post about BNAGENT, join Telegram.</span><span class="zh">每项 +1 份：关注 X、发帖宣传 BNAGENT、加入 Telegram。</span></p><p class="small" id="socialInfo"></p></div>
+    <div class="panel"><h3><span class="en">Social tasks</span><span class="zh">社交任务</span></h3><p><span class="en">+1 share each: follow <a href="https://x.com/bnAgent_" target="_blank" rel="noopener">@bnAgent_</a> on X, post about BNAGENT.</span><span class="zh">每项 +1 份：在 X 关注 <a href="https://x.com/bnAgent_" target="_blank" rel="noopener">@bnAgent_</a>、发帖宣传 BNAGENT。</span></p><p class="small" id="socialInfo"></p></div>
   </div>
 </section>
 
@@ -146,7 +147,7 @@
     <ul>
       <li>30,000 shares in total. Shares #1–#1,100 are <b>burned at deploy</b>: they are never sold, and no tokens or USDT exist for them. Selling starts at share #1,101, so 28,900 shares are for sale (46,300 USDT at table prices).</li>
       <li>Eligibility: the sending wallet must hold a <code>.ai</code> Agent ID (read on-chain from the SPACE ID registry).</li>
-      <li>Quota: 10 shares per Agent ID, +1 per invited Agent ID's first paid mint, +1 per social task (3 tasks). Max 10 shares per transaction.</li>
+      <li>Quota: 10 shares per Agent ID, +1 per invited Agent ID's first paid mint, +1 per social task. Max 10 shares per transaction.</li>
       <li>Shares #1,101–#10,000 cost 1 USDT and give 50,000,000 BNAGENT each. From share 10,001 the payment buys BNAGENT at the pool price minus 1%.</li>
       <li>Pay with USDT (approve, then mint with a maximum cost) or with BNB (priced with Chainlink BNB/USD plus 1%, swapped to USDT on PancakeSwap in the same transaction; BNB above the quote is refunded).</li>
       <li>Of every payment, 20% goes straight to the project treasury (<span class="mono addr">0x8663…d8AE</span>) and 80% stays with the mint contract for liquidity. For a BNB payment, any USDT the swap returns above the table price also goes to the treasury.</li>
@@ -176,7 +177,7 @@
     <ul>
       <li>共 30,000 份。第 #1–#1,100 份<b>在部署时销毁</b>：永不出售，也没有对应的代币或 USDT。从第 #1,101 份开始发售，可售 28,900 份（按价格表合计 46,300 USDT）。</li>
       <li>资格：发送交易的钱包必须持有 <code>.ai</code> Agent ID（链上读取 SPACE ID 注册表）。</li>
-      <li>额度：每个 Agent ID 10 份；被邀请的 Agent ID 首次付费铸造，邀请人 +1；每完成一项社交任务 +1（共 3 项）。每笔最多 10 份。</li>
+      <li>额度：每个 Agent ID 10 份；被邀请的 Agent ID 首次付费铸造，邀请人 +1；每完成一项社交任务 +1。每笔最多 10 份。</li>
       <li>第 #1,101–#10,000 份每份 1 USDT，得 50,000,000 BNAGENT。第 10,001 份起按池价 9.9 折买入。</li>
       <li>可用 USDT（先授权，再带最高价铸造）或 BNB 支付（按 Chainlink BNB/USD 价格 +1% 计价，同一笔交易内在 PancakeSwap 换成 USDT，多付的 BNB 退回）。</li>
       <li>每笔付款 20% 直接进入项目金库（<span class="mono addr">0x8663…d8AE</span>），80% 留在铸造合约用于流动性。BNB 付款兑换所得超出价格表的部分也进金库。</li>
@@ -210,7 +211,7 @@ referrer = zero address if none · max 10 shares per tx · add 20% to the gas es
 </main>
 <footer><div class="wrap">
   <img src="assets/bnagent-lockup-v3.png" alt="BNAGENT" style="height:26px;opacity:.85"><br>
-  <span class="en">If share 10,000 isn't reached within 30 days, the team may withdraw the parked 80%. Independent project, not affiliated with Binance.</span><span class="zh">30 天未达第 10,000 份时团队可提取留存的 80%。独立项目，与币安无关。</span>
+  <span class="en">If share 10,000 isn't reached within 30 days, the team may withdraw the parked 80%. Independent project, not affiliated with Binance.</span><span class="zh">30 天未达第 10,000 份时团队可提取留存的 80%。独立项目，与币安无关。</span><br><a href="https://x.com/bnAgent_" target="_blank" rel="noopener" id="xLinkFoot">X: @bnAgent_</a>
 </div></footer>
 <dialog id="walletModal" aria-labelledby="walletModalTitle">
   <div class="mhead"><h2 id="walletModalTitle"><span class="en">Connect a wallet</span><span class="zh">连接钱包</span></h2><button class="mini" id="modalClose" aria-label="Close">✕</button></div>
