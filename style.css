@@ -240,3 +240,6 @@ a.hbtn{text-decoration:none}
 
 .tierwrap{max-height:420px;overflow-y:auto;border-radius:10px}
 .tierwrap thead th{position:sticky;top:0;background:var(--bg,#0b0b0b);z-index:1}
+
+.slegend .sstage{margin-left:auto;color:var(--muted);font-size:12px}
+.card.pass .slegend .sstage{color:#120e04b3}
