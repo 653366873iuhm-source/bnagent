@@ -7,7 +7,9 @@ const ROOT = process.argv[2] || '/workspace/work/bnagent/site';
 const BASE = process.argv[3]; // optional: test a live URL instead of a local server
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.md': 'text/markdown' };
 const srv = http.createServer((q, r) => { let f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); if (f.endsWith('/')) f += 'index.html'; fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); }); });
-const ADDR = '0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE'; // holds allin168.ai on BSC
+const ADDR = '0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE'; // test fixture: a wallet holding allin168.ai on BSC (not the treasury; treasury = 0x8663…d8AE iuhm.ai)
+const TREASURY = '0x866396d4aee9467b67194431bdbDdE8E8044d8AE'; // iuhm.ai Agentic Wallet
+const MINT = '0xBd57F860B043924f4F37d35AC16c3aab37068e9a';
 const mock = (addr) => `(() => {
   const calls = []; window.__calls = calls; let chain = '0x1'; let added = false; const ls = {};
   const p = { isMetaMask: true, request: async ({ method, params }) => { calls.push(method);
@@ -42,7 +44,10 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push(String(e)));
     await pg.goto(base + '?lang=zh', { waitUntil: 'networkidle' });
     ok('no-wallet: page loads without console errors', errs.length === 0, errs.join(' | '));
-    ok('no-wallet: mint button says 合约未部署', (await pg.textContent('#mintBtn')).includes('合约未部署'));
+    ok('no-wallet: mint button asks to connect (contracts deployed)', (await pg.textContent('#mintBtn')).includes('连接钱包后铸造'));
+    ok('no-wallet: addresses card shows mint + treasury', (await pg.textContent('#addrBox')).includes(MINT) && (await pg.textContent('#addrBox')).includes(TREASURY));
+    await pg.waitForFunction(() => /\d/.test(document.getElementById('sMinted').textContent) && document.getElementById('sPaused').textContent !== '–', null, { timeout: 20000 }).catch(() => {});
+    ok('no-wallet: live supply 1,100 / 30,000 and paused state', (await pg.textContent('#sMinted')).trim() === '1,100' && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
     await pg.click('#connectBtn');
     const body = await pg.textContent('#modalBody');
     ok('no-wallet: chooser opens and says no wallet detected', body.includes('未检测到浏览器钱包'));
@@ -51,7 +56,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     await pg.fill('#watchAddr', ADDR); await pg.click('#watchBtn');
     await pg.waitForFunction(() => /allin168|无 \.ai|失败/.test(document.getElementById('watchOut').textContent), null, { timeout: 20000 }).catch(() => {});
     const w = await pg.textContent('#watchOut');
-    ok('no-wallet: read-only Agent ID check works', w.includes('allin168.ai') && w.includes('合约未部署'), w);
+    ok('no-wallet: read-only Agent ID check works', w.includes('allin168.ai') && w.includes('已铸'), w);
     await pg.screenshot({ path: __dirname + '/shot-nowallet-modal.png', fullPage: false });
     await ctx.close();
   }
@@ -71,8 +76,10 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('mock: shows address', wb.includes('0x49E6…9BCE'), wb);
     ok('mock: switched to BSC via wallet_addEthereumChain after 4902', calls.includes('wallet_switchEthereumChain') && calls.includes('wallet_addEthereumChain') && wb.includes('BNB Smart Chain (56)'), calls.join(','));
     ok('mock: shows Agent ID from registry', wb.includes('allin168.ai'), wb);
-    ok('mock: shows contracts not deployed', wb.includes('Contracts not deployed yet'));
-    ok('mock: mint button disabled with not-deployed label', (await pg.isDisabled('#mintBtn')) && (await pg.textContent('#mintBtn')).includes('not deployed'));
+    await pg.waitForFunction(() => /minted \d+ \/ quota/.test(document.getElementById('walletBox').textContent), null, { timeout: 20000 }).catch(() => {});
+    ok('mock: shows live mint status from walletStatus', /minted \d+ \/ quota \d+/.test(await pg.textContent('#walletBox')));
+    await pg.waitForFunction(() => /paused|Mint \d/.test(document.getElementById('mintBtn').textContent), null, { timeout: 20000 }).catch(() => {});
+    ok('mock: mint button reflects paused state', (await pg.textContent('#mintBtn')).includes('Minting is paused') ? await pg.isDisabled('#mintBtn') : /Mint \d/.test(await pg.textContent('#mintBtn')), await pg.textContent('#mintBtn'));
     await pg.screenshot({ path: __dirname + '/shot-connected.png', fullPage: false });
     // reload: silent auto-reconnect via eth_accounts
     await pg.reload({ waitUntil: 'networkidle' });

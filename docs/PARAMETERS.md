@@ -1,5 +1,7 @@
 # BNAGENT parameters and scaling math
 
+**Deployed** on BSC mainnet 2026-10-30 (tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b): mint 0xBd57F860B043924f4F37d35AC16c3aab37068e9a, token 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c, pair 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc; treasury 0x866396d4aee9467b67194431bdbDdE8E8044d8AE (iuhm.ai). Minting starts paused.
+
 Reference mechanism: the $JAGENT mint/token (BSC 0x3643…2aB8 / 0x8e64…5aE15, verified source read from Sourcify).
 BNAGENT re-implements the mechanism in its own code with Jager's money model (user decision 2026-10-30 00:25 CST). These values differ (user-decided); audit: docs/JAGER-DIFF.md.
 
@@ -11,7 +13,7 @@ BNAGENT re-implements the mechanism in its own code with Jager's money model (us
 | Price table | 5 tiers to 8.07 | first 3 tiers, truncated at 30,000 (max 2.28) | user |
 | Total USDT | 27,728,100 (table) / 27,727,060 (constant) | 47,400 for all 30,000; **46,300 for the 28,900 sellable** | sum of table |
 | Hard cap | 444T | 4.44T (4,440,000,000,000 × 1e18) | user |
-| Treasury / tax receiver / admin | multisig | 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE (Agentic Wallet, `allin168.ai`) | user |
+| Treasury / tax receiver / admin | multisig | 0x866396d4aee9467b67194431bdbDdE8E8044d8AE (Agentic Wallet, `iuhm.ai`) | user |
 | Floor line | paid × 50,000,000 / 27,727,060 (≈1.803293×) | paid × **83,492 / 46,300** (≈1.803283×) | denominator = price of the sellable shares (user); numerator = 46,300 × 50,000,000 / 27,727,060 = 83,492.4 → 83,492 |
 | Ceiling line (view only, unused in logic) | 60,000,000 / 27,727,060 | 100,191 / 46,300 | same scaling |
 | Opening pool | 8,000 USDT + 400B (hard-coded) | **parked amounts**: 8,900 × 0.80 = 7,120 USDT + 8,900 × 40M = 356B (50M per USDT) | user 00:34 |

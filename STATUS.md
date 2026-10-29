@@ -1,7 +1,17 @@
-# BNAGENT — STATUS (2026-10-30 ~01:20 CST)
+# BNAGENT — STATUS (2026-10-30 ~02:00 CST)
+
+## DEPLOYED on BSC mainnet (minting still PAUSED)
+- Deploy tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b (block 130,514,568, success), sent from the treasury Agentic Wallet **0x866396d4aee9467b67194431bdbDdE8E8044d8AE (`iuhm.ai`)**.
+- Mint **0xBd57F860B043924f4F37d35AC16c3aab37068e9a** · token **0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c** · pair **0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc** (from `mint.pair()`).
+- Source **verified on BscScan** (Etherscan v2 API, standard-JSON) and **Sourcify** (full match) for mint and token.
+- On-chain: `paused()` = true, `totalMinted()` = 1100, `treasury()` = iuhm.ai wallet. **Tx 2 `setPaused(false)` NOT sent** (needs user confirmation).
+- Render `bnagent-api`: `ALLOW_TO=0xBd57F860B043924f4F37d35AC16c3aab37068e9a` set and redeployed. Site config/llms.txt/agent.md/docs carry the live addresses; site reads paused/supply live.
+- Note: the NatSpec comment in src/BnagentMint.sol still says "treasury 0x49E6…9BCE" — left unchanged on purpose (verified source must match
+  what was deployed; the treasury is a constructor argument, so the comment has no effect).
+
 
 ## Done
-- Contracts on **Jager's money model** + allowed differences (docs/JAGER-DIFF.md): 20% of each payment → treasury 0x49E6…9BCE, 80% parked;
+- Contracts on **Jager's money model** + allowed differences (docs/JAGER-DIFF.md): 20% of each payment → treasury 0x8663…d8AE (iuhm.ai), 80% parked;
   the tx reaching share 10,000 auto-opens the PancakeSwap BNAGENT/USDT pool (LP to dead, transfer lock lifted); afterwards 80% of each mint → pool.
 - **1,100 burned shares**: sale starts at #1,101; 28,900 sellable (46,300 USDT).
 - **30-day rule, REPEATABLE (user 2026-10-30 00:54 CST):** clock starts at the first unpause. After 30 days, while share 10,000 has not been reached,
@@ -10,22 +20,20 @@
   withdraw** (e.g. withdraw at 8,000, open at 10,000 → 1,600 USDT + 80B). Never before day 30, never after the pool opens, works after renounce.
   `MintClosed` removed. Dead tokens stay in totalSupply (cap math conservative).
 - Fork tests: **26/26 PASS** (docs/test-results.txt).
-- Deploy plan (unsigned) `deploy/bsc-mainnet-plan.json`, docs/DEPLOY.md: mint 0x4E826B92A676DEe5DE13E8Da7C2BD42b0172281b,
-  token 0x568bf080000E07A017AF1C886158a5b6ad366591, pair 0x495369C007508D28a27Aaaeca18B3D8af8233037; deploy gas 8,798,720 (~0.00044 BNB).
-- Site: **https://bnagent.onrender.com/** (Render static site `bnagent`, publish dir `site/`, auto-deploy from main) + GitHub Pages mirror
-  https://653366873iuhm-source.github.io/bnagent/ (gh-pages = copy of site/). New logo (tools/make_logo.py → site/assets: mark.svg, logo.svg,
-  bnagent-logo.svg (horizontal), favicon.svg + 32/180/512 png, og.svg/og.png, logo-preview.png), og/twitter tags, canonical = onrender.
+- Deploy plan `deploy/bsc-mainnet-plan.json` (tx 1 broadcast byte-identical), docs/DEPLOY.md (deployed addresses + verification).
+- Site: **https://bnagent.onrender.com/** (Render static site `bnagent`, publish dir `site/`; auto-deploy does NOT fire, trigger a manual deploy via API) + GitHub Pages mirror
+  https://653366873iuhm-source.github.io/bnagent/ (gh-pages = copy of site/). **Logo v2** (2026-10-30, commit 81541b6; tools/make_logo_v2.py):
+  glossy gold helmet/chevron agent mark + Michroma "BNAGENT" wordmark lockup; v2 favicons (svg + 32/180/512 png) and og-v2 image with new
+  filenames (Render CDN cached the old ones); runner-up concepts kept as site/assets/logo-v2-alt-1..3.png. og/twitter tags, canonical = onrender.
 - **Binance Agentic Wallet (.ai Agent ID) QR connect** like jager.live: `server/index.mjs` proxy (Render web service `bnagent-api`,
   https://bnagent-api.onrender.com, free plan, Singapore) → Binance agent-wallet login/confirm/query/mpc-wallet list/contract-call preview/execute.
   Desktop: QR + pairing code; mobile: "Open in Binance App" link (the QR URL is a Binance universal link). Connected session acts as an EIP-1193
-  provider, so the mint flow is unchanged (preview → user approves in the app → txHash). Headless tests 30/30.
+  provider, so the mint flow is unchanged (preview → user approves in the app → txHash). Headless tests 32/32 (deployed-state checks: live supply 1,100/30,000, paused label, addresses).
 
 ## Not done / next
 - Render auto-deploy on push did NOT fire for either service (GitHub webhook apparently not wired for this repo): after each push trigger
   `POST https://api.render.com/v1/services/<id>/deploys` (static `srv-dbhnqqqjnfac73afudj0`, api `srv-dbhnrnnlk1mc73d80lm0`) or fix the Render GitHub app access.
-- After deployment: set `ALLOW_TO=<mint address>` on the `bnagent-api` Render service (preview of mint calls is refused until then; USDT approve allowed),
-  and fill site/config.js, llms.txt, agent.md.
-- Mainnet deployment: needs the user's explicit go-ahead.
+- **Open minting**: tx 2 `setPaused(false)` from the treasury — only after the user confirms (starts the 30-day clock).
 - Social-task verification backend (signs `Social(...)` with the dedicated key) — not built.
 - Real scan-and-approve of the QR flow not exercised (needs a user with the Binance App); Render free web service sleeps after ~15 min idle,
   so the first QR request can take ~30-60 s.

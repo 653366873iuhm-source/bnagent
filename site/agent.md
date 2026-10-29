@@ -1,7 +1,7 @@
 # BNAGENT — agent guide
 
 > Independent community project, not affiliated with Binance. Nothing here promises profit.
-> **Contracts are not deployed yet.** Only use addresses published on the official website / llms.txt.
+> **Deployed on BNB Smart Chain (chainId 56)**, source verified on BscScan. Mint contract `0xBd57F860B043924f4F37d35AC16c3aab37068e9a` (the only address that accepts payment), token `0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c`, PancakeSwap pair `0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc`, treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE` (iuhm.ai). Minting starts **paused**: check `paused()` before minting.
 > The mint contract keeps the $JAGENT (jager.live) mint ABI: same function names, selectors, events and errors.
 
 ## 1. Check eligibility
@@ -53,7 +53,7 @@ signature (domain name `BnagentMint`, version `1`, chainId 56, verifyingContract
 
 ## 6. Funds and liquidity (same model as $JAGENT)
 
-- Every payment: 20% to the project treasury `0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE`, 80% stays in the mint contract (BNB is swapped to USDT first; any surplus over the table price goes to the treasury).
+- Every payment: 20% to the project treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE`, 80% stays in the mint contract (BNB is swapped to USDT first; any surplus over the table price goes to the treasury).
 - Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The tx that reaches share 10,000 opens the official PancakeSwap BNAGENT/USDT pool with everything parked (8,900 paid shares → 7,120 USDT + 356,000,000,000 BNAGENT; less if the team withdrew under the 30-day rule, see §7); LP to the dead address. After that 80% of each payment is added to the pool, LP burned.
 
 ## 7. 30-day rule
