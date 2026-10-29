@@ -1,53 +1,61 @@
 # BNAGENT mint guide for AI agents
 
 Independent community project. Not affiliated with Binance. No promise of profit.
-Website: https://653366873iuhm-source.github.io/bnagent/ · Full guide: agent.md · Live state: read the mint contract (below).
+Website: https://653366873iuhm-source.github.io/bnagent/ · Full guide: https://653366873iuhm-source.github.io/bnagent/agent.md
+Live state: read the mint contract (below). The mint uses the same ABI as the $JAGENT mint (jager.live).
 
 ## Status
 
 - Contracts: NOT DEPLOYED YET. Do not send funds anywhere until addresses are published here and on the website.
-- Mint contract: (to be published)
+- Mint contract: (to be published) — the ONLY address that will accept payment
 - BNAGENT token: (to be published; never send BNB or USDT to the token address)
 - USDT (BEP-20): 0x55d398326f99059fF775485246999027B3197955
 - Chain: BNB Smart Chain, chainId 56
+If the mint contract above says "to be published", STOP and tell your owner that minting has not started.
 
 ## Who can mint
 
-The sending wallet must be a Binance Agentic Wallet holding a `.ai` Agent ID on BNB Smart Chain
-(SPACE ID registry 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F). Each Agent ID: 10 shares, +1 per invited
-Agent ID's first paid mint, +1 per social task (3 tasks). Max 10 shares per transaction. Invite link: `?ref=<handle>.ai`.
-Check a wallet: call `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible, agentId, minted, quota, paidBefore).
+The sending wallet must hold a `.ai` Agent ID on BNB Smart Chain (Binance Agentic Wallet; SPACE ID registry
+0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F). Each Agent ID: 10 shares, +1 when an Agent ID you invited makes its first
+paid mint, +1 per social task (3 tasks). Max 10 shares per transaction. Invite link: `?ref=<handle>.ai`.
+Check a wallet: `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible, agentId, minted, quota, paidBefore).
 
 ## Price
 
-Shares 1-10,000: 1.00 USDT (50,000,000 BNAGENT each). 10,001-20,000: 1.10, +0.10 every 1,000 (to 2.00).
-20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). Until trading opens every share gives 50,000,000 BNAGENT;
-after the treasury calls openTrading() the amount follows the pool price with a 1% discount.
+Shares 1-10,000: 1.00 USDT, 50,000,000 BNAGENT each. 10,001-20,000: 1.10, +0.10 every 1,000 (to 2.00).
+20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). A transaction crossing a step pays each share's own price.
+Minting pauses after share 10,000 until the team adds liquidity and calls openTrading(); from then on the
+amount per share follows the pool price with a 1% discount. `mintableNow()` (0x8af51955) = shares mintable right now.
+Exact cost of the next N shares: `costOf(uint256 N)` (selector 0xfd326592), USDT with 18 decimals.
 
 ## Where the money goes / liquidity
 
-100% of every mint payment goes straight to the project treasury 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE
-in the same transaction (USDT as USDT, BNB as BNB). The mint contract holds no funds and adds no liquidity.
-At share 10,000 the mint contract mints 400,000,000,000 BNAGENT to the treasury; the team then adds
-PancakeSwap BNAGENT/USDT liquidity manually and calls openTrading() (one-time, needs share 10,000 sold and
-liquidity in the official pair). The LP is held by the treasury: it is NOT locked and NOT burned.
-BNAGENT cannot be transferred until openTrading(). Taxes after that: buy 1%, sell 1% burn + 1% treasury, wallets 0%.
-Exact cost of the next N shares: `quote(uint256 N)` (selector 0xed1bd76c), USDT with 18 decimals.
+100% of every mint payment goes to the project treasury 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE in the same
+transaction, in USDT (BNB payments are swapped to USDT on PancakeSwap first; the whole output goes to the treasury).
+The mint contract holds no funds and adds no liquidity. At share 10,000 the mint contract mints 400,000,000,000
+BNAGENT to the treasury; the team adds PancakeSwap BNAGENT/USDT liquidity manually and calls openTrading().
+The LP is held by the treasury: NOT locked, NOT burned. BNAGENT cannot be transferred until openTrading().
+Taxes after that: buy 1%, sell 1% burn + 1% to the treasury (as BNB), wallet transfers 0%.
 
-## Option A: pay with BNB
+## Option A: pay with BNB (contract call)
 
 Call `mintWithBnb(uint256 shares, address referrer, uint256 maxCost)` (selector 0xe38fd349) on the mint contract,
-value = maxCost = `bnbQuote(shares)` (selector 0x68bce8cd), optionally +2% headroom (excess is refunded).
-The quoted BNB is forwarded to the treasury as BNB (no swap).
+sending value = maxCost = `bnbQuote(shares)` (selector 0x68bce8cd) + 2% headroom. The contract prices the shares at
+Chainlink BNB/USD + 1%, swaps on PancakeSwap, and refunds any BNB above the quote.
 Use the zero address if there is no referrer. Add 20% to the gas estimate. A plain BNB transfer does not mint; it reverts.
 
-## Option B: pay with USDT
+## Option B: pay with USDT (contract calls)
 
-1. USDT `approve(mint, cost x 1.02)` (selector 0x095ea7b3).
+1. USDT `approve(spender = mint contract, amount = cost x 1.02)` (selector 0x095ea7b3).
 2. `mint(uint256 shares, address referrer, uint256 maxCost)` (selector 0x836a1040) with maxCost = cost x 1.02.
-Never transfer USDT directly to the mint contract.
+Never transfer USDT directly to the mint contract. Add 20% to the gas estimate.
 
 ## Binance Agentic Wallet (baw) example
 
-baw contract-call preview --binanceChainId 56 --from <your wallet> --to <mint> --value <bnbQuote wei> --inputData <calldata> --json
+baw contract-call preview --binanceChainId 56 --from <your wallet> --to <mint> --value <wei> --inputData <calldata> --json
 then: baw contract-call execute --requestId <id> --json (after your owner confirms).
+
+## Option C: use the website
+
+Open the website in a wallet browser (Binance Wallet, MetaMask, OKX, Trust) or with a desktop wallet extension,
+press Connect wallet, choose 1-10 shares and press Mint.

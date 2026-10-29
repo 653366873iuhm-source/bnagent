@@ -11,15 +11,16 @@ Plan file: `deploy/bsc-mainnet-plan.json` (regenerate: `forge script script/Buil
 | 1 | Treasury Agentic Wallet 0x49E6…9BCE | CREATE2 proxy 0x4e59b44847b379578588920cA78FbF26c0B4956C | `salt ‖ initCode` (salt = keccak256("BNAGENT.mint.v1")) | BnagentMint at the predicted address; its constructor deploys BnagentToken (CREATE, nonce 1) and creates the official, empty PancakeSwap BNAGENT/USDT pair. Starts paused. |
 | 2 | Treasury | BnagentMint | `setPaused(false)` = `0x16c38b3c…00` | Minting opens |
 
-Predicted (socialSigner = treasury, initCodeHash 0xa50775ab019923a10e50ac204fcbb2ccbc20ea92ef4ef846d9a62a0a4604cda1):
-- mint  0xeCbF387Bc969eECeB0C0b04E595bB2F00938b027
-- token 0x5044dC1cD9b5F8a3242628D10c61536658dC5A23
-- pair  0x1E9E6BcF76b874E41A74ed74c866B455E256016e (PancakeSwap V2 CREATE2: factory 0xcA14…0c73, init hash 0x00fb7f63…9bd5; token is token0)
+Predicted (socialSigner = treasury, initCodeHash 0xb7327642db54b16708224fb71ccc72dcf10f7b472fa484ab65f424ae874f5d1a; Jager-identical ABI build, 2026-10-30):
+- mint  0x7cd80FF28A70CBC28AeFeaCF6C3695Fe0fcDE836
+- token 0x8641Dd2857504f963F40446196BFF9091C288425
+- pair  0xD3d0c6F1c8102d33fb9cf836e82aC8C228789e6c (PancakeSwap V2 CREATE2: factory 0xcA14…0c73, init hash 0x00fb7f63…9bd5; USDT is token0)
+(all three confirmed by deploying on a BSC mainnet fork)
 
-These change if `SOCIAL_SIGNER` changes (constructor argument). Initcode 25,493 bytes (limit 49,152). eth_estimateGas for tx 1 on BSC mainnet
-(2026-10-29, from the treasury): 8,314,936 gas ≈ 0.00042 BNB at 0.05 gwei.
+These change if `SOCIAL_SIGNER` changes (constructor argument) or the code changes. Initcode 25,882 bytes (limit 49,152).
+eth_estimateGas for tx 1 on BSC mainnet (2026-10-30 00:1x CST, from the treasury): 8,389,782 gas (fork execution 7,995,635) ≈ 0.00042 BNB at 0.05 gwei.
 
-From tx 1 on, every mint payment goes straight to the treasury (USDT as USDT, BNB as BNB). The mint contract never holds funds.
+From tx 1 on, every mint payment goes straight to the treasury in USDT (BNB payments are swapped to USDT on PancakeSwap WBNB/USDT exactly as in the Jager mint; the whole output goes to the treasury). The mint contract never holds funds. Minting stops at share 10,000 (`mintableNow()` = 0) until step 6.
 
 ## After share 10,000 (treasury, manual — needs explicit user approval for each tx)
 
@@ -37,7 +38,7 @@ If someone donates USDT to the empty pair and calls `sync()` (reserves USDT > 0,
 (INSUFFICIENT_LIQUIDITY). Fallback (fork-tested): treasury transfers the 400B BNAGENT and the USDT directly to the pair, then calls
 `pair.mint(treasury)` (0x6a627842), then `openTrading()`. The donated dust simply belongs to the LP (the treasury).
 
-Optional, after trading opens: `renounce()` (0xb15be2f5) removes pause + pool blocking forever (reverts before `openTrading()`).
+Optional: `renounce()` (0xb15be2f5) removes pause + pool blocking forever (as in Jager, no opening precondition; `openTrading()` keeps working after it).
 
 Note: after trading opens the treasury is NOT tax-exempt; a later `addLiquidity` from the treasury pays the 1% burn + 1% sell fee on the
 BNAGENT side (same as before this change).

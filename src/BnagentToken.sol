@@ -5,131 +5,117 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IV2Factory} from "./interfaces/IExternal.sol";
 
 /// @title BNAGENT token
-/// @notice BEP-20 created only by its mint contract (the contract that deploys it), never
-///         beyond HARD_CAP. Rules, all fixed in code:
-///         - Until the treasury calls openTrading() on the mint contract, nothing moves except tokens
-///           leaving the mint contract and the treasury's transfers into the official pair (so it
-///           can add the liquidity itself). Once open, it can never be locked again.
-///         - After opening, wallet-to-wallet transfers are free of tax.
-///         - Buying from the official BNAGENT/USDT pair: 1% stays with the mint contract.
-///         - Selling into the official pair: 1% goes to the dead address and 1% to the mint contract.
-///         - Transfers into any other AMM pair that holds BNAGENT, into the PancakeSwap V4
-///           PoolManager / Infinity Vault, or into a pool blocked by the admin, are refused.
-///         The mint contract later swaps the collected tokens to BNB for the treasury.
+/// @notice Same rules and public interface as the $JAGENT token (BSC 0x8e64…5aE15), with these
+///         intended differences only: name BNAGENT, cap 4.44T, and the treasury may move its own
+///         tokens into the official pair before trading opens (it adds the opening liquidity itself).
+///         Minted only by the mint contract (the contract that deploys it), up to MAX_SUPPLY including
+///         the dead address. Before trading opens only mint-contract sends (and treasury -> official
+///         pair) move. After that every wallet and plain contract can receive. Only pool-like receivers
+///         are refused: other pairs holding this token, the hardcoded V4 PoolManager and Infinity Vault,
+///         and pools the mint contract blocks. Buys from the official pair leave 1% with the mint
+///         contract. Sells send 1% to dead and leave 1% with the mint contract. Nothing else is taxed and
+///         no swap ever runs inside a user's own transfer.
 contract BnagentToken is ERC20 {
-    uint256 public constant HARD_CAP = 4_440_000_000_000 ether; // 4.44T
-    uint16 public constant BUY_FEE_BPS = 100;
-    uint16 public constant SELL_BURN_BPS = 100;
-    uint16 public constant SELL_FEE_BPS = 100;
+    uint256 public constant MAX_SUPPLY = 4_440_000_000_000 ether; // 4.44T
+    uint256 public constant BUY_TAX_BPS = 100;
+    uint256 public constant SELL_BURN_BPS = 100;
+    uint256 public constant SELL_KEEP_BPS = 100;
+    uint256 private constant PROBE_GAS = 20_000;
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
-    uint256 private constant PROBE_GAS_LIMIT = 20_000;
 
+    address public immutable usdt;
+    address public immutable pair;
+    address public immutable poolManager;
+    address public immutable infinityVault;
     /// @notice The mint contract. It deployed this token and is the only address able to create supply.
     address public immutable minter;
-    address public immutable usdt;
-    /// @notice The single official PancakeSwap V2 BNAGENT/USDT pair, created at deployment.
-    address public immutable pair;
-    address public immutable v4PoolManager;
-    address public immutable v4Vault;
-    /// @notice Project treasury: the only address allowed to move BNAGENT (into the official pair) before trading opens.
+    /// @notice Project treasury: before trading opens it may move its tokens into the official pair only.
     address public immutable treasury;
 
-    bool public tradingOpen;
-    bool public blockingRetired;
-    mapping(address => bool) public isBlockedPool;
+    bool public tradingEnabled;
+    bool public blocksDisabled;
+    mapping(address => bool) public blockedPool;
 
-    event TradingOpened(uint256 timestamp);
-    event BlockedPoolSet(address indexed pool, bool blocked);
-    event BlockingRetired();
+    event TradingEnabled(uint256 at);
+    event PoolBlocked(address indexed pool, bool blocked);
+    event BlocksDisabled();
 
-    error OnlyMinter();
-    error ZeroAddr();
-    error TransfersLocked();
-    error ReceiverIsPool();
-    error CapExceeded();
+    error NotMinter();
+    error ZeroAddress();
+    error TransfersClosed();
+    error PoolRejected();
+    error SupplyCap();
 
-    constructor(address usdt_, address factory_, address poolManager_, address vault_, address treasury_)
+    constructor(address usdt_, address factory_, address poolManager_, address infinityVault_, address treasury_)
         ERC20("BNAGENT", "BNAGENT")
     {
-        if (usdt_ == address(0) || factory_ == address(0) || treasury_ == address(0)) revert ZeroAddr();
+        if (usdt_ == address(0) || factory_ == address(0) || treasury_ == address(0)) revert ZeroAddress();
+        usdt = usdt_;
+        poolManager = poolManager_;
+        infinityVault = infinityVault_;
         treasury = treasury_;
         minter = msg.sender;
-        usdt = usdt_;
-        v4PoolManager = poolManager_;
-        v4Vault = vault_;
         pair = IV2Factory(factory_).createPair(address(this), usdt_);
     }
 
     modifier onlyMinter() {
-        if (msg.sender != minter) revert OnlyMinter();
+        if (msg.sender != minter) revert NotMinter();
         _;
     }
 
-    // ------------------------------------------------------------------ minter hooks
-
     function mint(address to, uint256 amount) external onlyMinter {
-        if (totalSupply() + amount > HARD_CAP) revert CapExceeded();
+        if (totalSupply() + amount > MAX_SUPPLY) revert SupplyCap();
         _mint(to, amount);
     }
 
-    function openTrading() external onlyMinter {
-        if (tradingOpen) return;
-        tradingOpen = true;
-        emit TradingOpened(block.timestamp);
+    function enableTrading() external onlyMinter {
+        if (tradingEnabled) return;
+        tradingEnabled = true;
+        emit TradingEnabled(block.timestamp);
     }
 
-    /// @notice Moves `amount` from the official pair's inventory to the dead address.
-    ///         The mint contract calls `sync()` on the pair right after.
-    function burnPairInventory(uint256 amount) external onlyMinter {
+    /// @notice Moves pool inventory to dead. The mint contract syncs the pair right after.
+    function burnFromPair(uint256 amount) external onlyMinter {
         super._update(pair, DEAD, amount);
     }
 
-    function setBlockedPool(address pool, bool blocked) external onlyMinter {
-        isBlockedPool[pool] = blocked;
-        emit BlockedPoolSet(pool, blocked);
+    function setPoolBlocked(address pool, bool blocked) external onlyMinter {
+        blockedPool[pool] = blocked;
+        emit PoolBlocked(pool, blocked);
     }
 
-    function retireBlocking() external onlyMinter {
-        blockingRetired = true;
-        emit BlockingRetired();
+    function disableBlocks() external onlyMinter {
+        blocksDisabled = true;
+        emit BlocksDisabled();
     }
 
-    // ------------------------------------------------------------------ pool detection
-
-    /// @notice True if a transfer into `to` is refused.
-    function isRejectedReceiver(address to) public view returns (bool) {
+    function rejects(address to) public view returns (bool) {
         if (to == pair) return false;
-        if (to == v4PoolManager || to == v4Vault) return true;
-        if (!blockingRetired && isBlockedPool[to]) return true;
-        return _looksLikeOtherPair(to);
+        if (to == poolManager || to == infinityVault) return true;
+        if (blockedPool[to] && !blocksDisabled) return true;
+        return _isOtherPair(to);
     }
 
-    /// @dev A contract whose token0()/token1() includes this token (and is not the official pair).
-    ///      EOAs and EIP-7702 delegated accounts (0xef0100 || address) are never treated as pairs.
-    function _looksLikeOtherPair(address a) private view returns (bool) {
-        uint256 len = a.code.length;
-        if (len == 0) return false;
-        if (len == 23 && _hasDelegationPrefix(a)) return false;
-        address first = _readAddress(a, 0x0dfe1681); // token0()
-        if (first == address(this)) return _readAddress(a, 0xd21220a7) != address(0); // token1()
-        if (first == address(0)) return false;
-        return _readAddress(a, 0xd21220a7) == address(this);
+    function _isOtherPair(address a) private view returns (bool) {
+        uint256 size = a.code.length;
+        if (size == 0) return false;
+        if (size == 23) {
+            bytes memory code = a.code;
+            if (code[0] == 0xef && code[1] == 0x01 && code[2] == 0x00) return false;
+        }
+        address t0 = _probe(a, 0x0dfe1681); // token0()
+        if (t0 == address(this)) return _probe(a, 0xd21220a7) != address(0); // token1()
+        if (t0 == address(0)) return false;
+        return _probe(a, 0xd21220a7) == address(this);
     }
 
-    function _hasDelegationPrefix(address a) private view returns (bool) {
-        bytes memory c = a.code;
-        return c[0] == 0xef && c[1] == 0x01 && c[2] == 0x00;
+    function _probe(address a, bytes4 selector) private view returns (address out) {
+        (bool ok, bytes memory data) = a.staticcall{gas: PROBE_GAS}(abi.encodeWithSelector(selector));
+        if (!ok || data.length != 32) return address(0);
+        uint256 word = abi.decode(data, (uint256));
+        if (word >> 160 != 0) return address(0);
+        out = address(uint160(word));
     }
-
-    function _readAddress(address target, bytes4 sel) private view returns (address result) {
-        (bool success, bytes memory ret) = target.staticcall{gas: PROBE_GAS_LIMIT}(abi.encodePacked(sel));
-        if (!success || ret.length != 32) return address(0);
-        uint256 w = abi.decode(ret, (uint256));
-        if (w >> 160 != 0) return address(0);
-        result = address(uint160(w));
-    }
-
-    // ------------------------------------------------------------------ transfer rules
 
     function _update(address from, address to, uint256 value) internal override {
         if (from == address(0)) {
@@ -137,29 +123,27 @@ contract BnagentToken is ERC20 {
             return;
         }
         address m = minter;
-        if (!tradingOpen) {
-            // Before opening: the mint contract may hand out tokens, and the treasury may move its
-            // tokens into the official pair to add liquidity. Nothing else moves.
-            if (from != m && !(from == treasury && to == pair)) revert TransfersLocked();
+        if (!tradingEnabled) {
+            // BNAGENT difference: the treasury may fund the official pair (manual opening liquidity).
+            if (from != m && !(from == treasury && to == pair)) revert TransfersClosed();
             super._update(from, to, value);
             return;
         }
-        if (isRejectedReceiver(to)) revert ReceiverIsPool();
+        if (rejects(to)) revert PoolRejected();
         if (from == m || to == m) {
             super._update(from, to, value);
             return;
         }
-        address p = pair;
-        if (from == p) {
-            uint256 fee = (value * BUY_FEE_BPS) / 10_000;
-            super._update(from, m, fee);
-            super._update(from, to, value - fee);
-        } else if (to == p) {
-            uint256 burnPart = (value * SELL_BURN_BPS) / 10_000;
-            uint256 feePart = (value * SELL_FEE_BPS) / 10_000;
-            super._update(from, DEAD, burnPart);
-            super._update(from, m, feePart);
-            super._update(from, to, value - burnPart - feePart);
+        if (from == pair) {
+            uint256 tax = (value * BUY_TAX_BPS) / 10_000;
+            super._update(from, m, tax);
+            super._update(from, to, value - tax);
+        } else if (to == pair) {
+            uint256 burnt = (value * SELL_BURN_BPS) / 10_000;
+            uint256 kept = (value * SELL_KEEP_BPS) / 10_000;
+            super._update(from, DEAD, burnt);
+            super._update(from, m, kept);
+            super._update(from, to, value - burnt - kept);
         } else {
             super._update(from, to, value);
         }

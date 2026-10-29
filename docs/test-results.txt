@@ -1,35 +1,33 @@
-# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130495086, run 2026-10-29 CST)
-Compiling 1 files with Solc 0.8.24
-Solc 0.8.24 finished in 2.22s
-Compiler run successful!
-
-Ran 13 tests for test/BnagentFork.t.sol:BnagentForkTest
-[PASS] test_BnbMintWithRefund() (gas: 326944)
-[PASS] test_EmptyPairDonationAndDirectLpAdd() (gas: 87645587)
-[PASS] test_FullFlow() (gas: 428218217)
+# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130495086, run 2026-10-30 00:01 CST)
+No files changed, compilation skipped
+Ran 16 tests for test/BnagentFork.t.sol:BnagentForkTest
+[PASS] test_BnbMintWithRefund() (gas: 388786)
+[PASS] test_EmptyPairDonationAndDirectLpAdd() (gas: 86138589)
+[PASS] test_FullFlow() (gas: 413653356)
 Logs:
-  mint txs with floor burn, shares 10,001-20,000: 994
+  mint txs with floor burn, shares 10,001-20,000: 999
   mint txs with floor burn, shares 20,001-30,000: 1000
   final pool USDT (wei): 8025038530687318813168
-  final pool BNAGENT (tokens): 114450878413
-  final total supply (tokens): 1617832294305
-  final circulating (tokens): 1219049316309
-  dead balance (tokens): 284332099582
+  final pool BNAGENT (tokens): 114239495209
+  final total supply (tokens): 1615580790822
+  final circulating (tokens): 1216797812826
+  dead balance (tokens): 284543482787
   circ value at pool price (USDT): 85476
   floor line (USDT): 85477
-  treasury USDT gained (net of its LP add): 39382
-  treasury BNB gained (wei): 25212212383988529
-
-[PASS] test_HardCapEnforcedInToken() (gas: 16092)
-[PASS] test_InviteAndSelfInvite() (gas: 516032)
-[PASS] test_MintRules() (gas: 463104)
-[PASS] test_OpenTradingRevertsBefore10000() (gas: 87205131)
-[PASS] test_PausedAtDeployAndAdmin() (gas: 214486)
-[PASS] test_PlainTransfersDoNotMint() (gas: 15484)
-[PASS] test_PriceTable() (gas: 41215396)
-[PASS] test_RealAgentIdsResolve() (gas: 32298)
-[PASS] test_SocialTasks() (gas: 275193)
-[PASS] test_TransfersLockedBeforeOpen() (gas: 207527)
-Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 39.85s (40.49s CPU time)
-
-Ran 1 test suite in 39.86s (39.85s CPU time): 13 tests passed, 0 failed, 0 skipped (13 total tests)
+  treasury USDT gained (net of its LP add): 39400
+  treasury BNB gained (wei): 997133304501398
+[PASS] test_HardCapEnforcedInToken() (gas: 16137)
+[PASS] test_InviteAndSelfInvite() (gas: 507213)
+[PASS] test_JagerSelectors() (gas: 6152)
+[PASS] test_MintRules() (gas: 461999)
+[PASS] test_NoMintPastOpenAtBeforeTrading() (gas: 85545938)
+[PASS] test_OpenTradingRevertsBefore10000() (gas: 85716583)
+[PASS] test_PausedAtDeployAndAdmin() (gas: 212486)
+[PASS] test_PlainTransfersDoNotMint() (gas: 15440)
+[PASS] test_PriceTable() (gas: 40285095)
+[PASS] test_RealAgentIdsResolve() (gas: 32342)
+[PASS] test_RenounceBeforeOpen() (gas: 85894639)
+[PASS] test_SocialTasks() (gas: 276078)
+[PASS] test_TransfersClosedBeforeOpen() (gas: 205704)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 40.71s (42.82s CPU time)
+Ran 1 test suite in 40.71s (40.71s CPU time): 16 tests passed, 0 failed, 0 skipped (16 total tests)
