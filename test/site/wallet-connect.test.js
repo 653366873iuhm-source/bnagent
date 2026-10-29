@@ -47,7 +47,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('no-wallet: mint button asks to connect (contracts deployed)', (await pg.textContent('#mintBtn')).includes('连接钱包后铸造'));
     ok('no-wallet: addresses card shows mint + treasury', (await pg.textContent('#addrBox')).includes(MINT) && (await pg.textContent('#addrBox')).includes(TREASURY));
     await pg.waitForFunction(() => /\d/.test(document.getElementById('sMinted').textContent) && document.getElementById('sPaused').textContent !== '–', null, { timeout: 20000 }).catch(() => {});
-    ok('no-wallet: live supply >= 1,100 / 30,000 and mint state', +(await pg.textContent('#sMinted')).trim().replace(/,/g, '') >= 1100 && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
+    ok('no-wallet: live supply >= 1,100 / 100,000,000 and mint state', +(await pg.textContent('#sMinted')).trim().replace(/,/g, '') >= 1100 && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
     await pg.click('#connectBtn');
     const body = await pg.textContent('#modalBody');
     ok('no-wallet: chooser opens and says no wallet detected', body.includes('未检测到浏览器钱包'));
@@ -157,7 +157,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     const og = await pg.getAttribute('meta[property="og:image"]', 'content');
     ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og-v3.png', og);
     const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
-    ok('supply: SUPPLY, N / 30,000 (N >= 1,100), one gold bar, one legend', sup.label === 'SUPPLY' && /^(\d{1,3}(,\d{3})*) \/ 30,000$/.test(sup.big) && +sup.big.split(' ')[0].replace(/,/g, '') >= 1100 && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted ' + sup.big, JSON.stringify(sup));
+    ok('supply: SUPPLY, N / 100,000,000 (N >= 1,100), one gold bar, one legend', sup.label === 'SUPPLY' && /^(\d{1,3}(,\d{3})*) \/ 100,000,000$/.test(sup.big) && +sup.big.split(' ')[0].replace(/,/g, '') >= 1100 && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted ' + sup.big, JSON.stringify(sup));
     const wp = await pg.textContent('#whitepaper');
     ok('docs: whitepaper has no admin section and no long 30-day section', !/Admin controls/.test(wp) && !/The 30-day rule/.test(wp));
     const page = await pg.textContent('body'); const foot = await pg.textContent('footer');

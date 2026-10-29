@@ -50,7 +50,7 @@
     </ul>
     <h3>3. Minting</h3>
     <ul>
-      <li>30,000 shares in total. Selling starts at share #1,101, so 28,900 shares are for sale (46,300 USDT at table prices).</li>
+      <li>100,000,000 shares in total. Selling starts at share #1,101, so 99,998,900 shares are for sale (4,223,766,600 USDT at table prices). Price table: 5,131 tiers from 1 USDT to 79.74 USDT (1,101–10,000: 1.00; 10,001–20,000: +0.10 every 1,000 to 2.00; 20,001–100,000: 2.10, +0.02 every 1,000; 100,001–1,000,000: 3.70, +0.02 every 10,000; then 5.50, +0.015 every 20,000 (rounded to the cent): 8.07 at 4,440,000 and 79.74 at 100,000,000).</li>
       <li>Eligibility: the sending wallet must hold a <code>.ai</code> Agent ID (read on-chain from the SPACE ID registry).</li>
       <li>Quota: 10 shares per Agent ID, +1 per invited Agent ID's first paid mint, +1 per social task. Max 10 shares per transaction.</li>
       <li>Shares #1,101–#10,000 cost 1 USDT and give 50,000,000 BNAGENT each. From share 10,001 the payment buys BNAGENT at the pool price minus 1%.</li>
@@ -61,9 +61,9 @@
     <ul>
       <li>Up to share 10,000, each share parks 0.80 USDT and 40,000,000 BNAGENT in the mint contract. The transaction that reaches share 10,000 opens the official BNAGENT/USDT PancakeSwap pool automatically with everything parked: 8,900 paid shares × 0.80 = 7,120 USDT and 356,000,000,000 BNAGENT (the same 1 USDT = 50,000,000 BNAGENT price). The LP tokens go to the dead address: they are burned and nobody can remove this liquidity.</li>
       <li>After that, 80% of each mint payment is added to the pool at the pool price, again with the LP burned.</li>
-      <li>Floor line: <code>line = total USDT paid × 83,492 / 46,300</code> (≈ 1.80 × total paid). If the pool value of circulating BNAGENT is below the line, the mint burns BNAGENT from the pool, raising the price by at most 0.8% per transaction and always keeping at least 116,666,667 BNAGENT in the pool.</li>
+      <li>Floor line: <code>line = total USDT paid × 7,616,686,731 / 4,223,766,600</code> (≈ 1.80 × total paid). If the pool value of circulating BNAGENT is below the line, the mint burns BNAGENT from the pool, raising the price by at most 0.8% per transaction and always keeping at least 11,666,666,667 BNAGENT in the pool.</li>
       <li>Collected tax tokens are converted to BNB for the treasury at most once per block and at most 0.10% of the pool's BNAGENT reserve per conversion.</li>
-      <li>Minting ends at share 30,000 or at the supply cap.</li>
+      <li>Minting ends at share 100,000,000 or at the 10,000T supply cap.</li>
     </ul>
     <h3>5. Independence</h3>
     <p>BNAGENT is an independent community project. It is not affiliated with, endorsed by, or operated by Binance, SPACE ID, PancakeSwap or Chainlink; it only uses their public on-chain contracts.</p>
@@ -80,7 +80,7 @@
     </ul>
     <h3>3. 铸造</h3>
     <ul>
-      <li>共 30,000 份。从第 #1,101 份开始发售，可售 28,900 份（按价格表合计 46,300 USDT）。</li>
+      <li>共 100,000,000 份。从第 #1,101 份开始发售，可售 99,998,900 份（按价格表合计 4,223,766,600 USDT）。价格表共 5,131 档，从 1 USDT 到 79.74 USDT（1,101–10,000：1.00；10,001–20,000：每 1,000 份 +0.10 至 2.00；20,001–100,000：2.10 起每 1,000 份 +0.02；100,001–1,000,000：3.70 起每 10,000 份 +0.02；之后 5.50 起每 20,000 份 +0.015（四舍五入到分），第 4,440,000 份为 8.07，第 100,000,000 份为 79.74）。</li>
       <li>资格：发送交易的钱包必须持有 <code>.ai</code> Agent ID（链上读取 SPACE ID 注册表）。</li>
       <li>额度：每个 Agent ID 10 份；被邀请的 Agent ID 首次付费铸造，邀请人 +1；每完成一项社交任务 +1。每笔最多 10 份。</li>
       <li>第 #1,101–#10,000 份每份 1 USDT，得 50,000,000 BNAGENT。第 10,001 份起按池价 9.9 折买入。</li>
@@ -91,9 +91,9 @@
     <ul>
       <li>第 10,000 份之前，每份在铸造合约中存放 0.80 USDT 和 40,000,000 BNAGENT。达到第 10,000 份的那笔交易用全部存放的资产自动在 PancakeSwap 建立官方 BNAGENT/USDT 池：8,900 份付费份额 × 0.80 = 7,120 USDT，配 356,000,000,000 BNAGENT（同样是 1 USDT = 50,000,000 BNAGENT）。LP 发往黑洞地址销毁，任何人都无法撤出这部分流动性。</li>
       <li>此后每笔铸造款的 80% 按池价加入资金池，LP 同样销毁。</li>
-      <li>地板线：<code>线 = 累计付款 USDT × 83,492 / 46,300</code>（约为累计付款的 1.80 倍）。流通 BNAGENT 按池价计算的市值低于该线时，铸造会从池中销毁 BNAGENT 抬高价格，每笔最多抬升 0.8%，池中始终保留至少 116,666,667 枚。</li>
+      <li>地板线：<code>线 = 累计付款 USDT × 7,616,686,731 / 4,223,766,600</code>（约为累计付款的 1.80 倍）。流通 BNAGENT 按池价计算的市值低于该线时，铸造会从池中销毁 BNAGENT 抬高价格，每笔最多抬升 0.8%，池中始终保留至少 11,666,666,667 枚。</li>
       <li>收到的税币每个区块最多兑换一次，每次不超过池中 BNAGENT 储备的 0.10%，换成 BNB 发往金库。</li>
-      <li>铸满 30,000 份或达到供应上限即结束。</li>
+      <li>铸满 100,000,000 份或达到 10,000T 供应上限即结束。</li>
     </ul>
     <h3>5. 独立声明</h3>
     <p>BNAGENT 是独立社区项目，与币安、SPACE ID、PancakeSwap、Chainlink 均无关联，也未获其背书，仅使用其公开链上合约。</p>

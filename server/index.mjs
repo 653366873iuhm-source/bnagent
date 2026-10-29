@@ -331,7 +331,7 @@ async function stats() {
     const price = nextCents / 100;
     let tokensPerShare = 50000000;
     if (open && u > 0n && t > 0n) tokensPerShare = Math.floor(price / (0.99 * (Number(u) / Number(t))));
-    const left = Math.max(0, 30000 - minted), maxN = Math.min(10, left);
+    const left = Math.max(0, 100000000 - minted), maxN = Math.min(10, left);
     const bnb = [];
     for (let n = 1; n <= maxN; n++) {
       const [c, q] = await Promise.all([ethCall(SEL2.costOf + w32(n.toString(16))), ethCall(SEL2.bnbQuote + w32(n.toString(16))).catch(() => null)]);
@@ -344,8 +344,8 @@ async function stats() {
       tokensPerShareNote: open
         ? "Estimate at the current pool price. After share 10,000 each share pays its USDT price at the pool price with a 1% discount, so the amount changes with the pool."
         : "Fixed at 50,000,000 BNAGENT per share up to share 10,000. After share 10,000 each share pays its USDT price at the pool price with a 1% discount, so the amount changes with the pool.",
-      mintingOpen: !paused && minted < 30000 && mintable !== 0, paused, poolOpensAt: 10000, maxPerTransaction: 10,
-      burnedAtDeploy: 1100, totalShares: 30000, bnb,
+      mintingOpen: !paused && minted < 100000000 && mintable !== 0, paused, poolOpensAt: 10000, maxPerTransaction: 10,
+      burnedAtDeploy: 1100, totalShares: 100000000, bnb,
     };
     STATS.data = data; STATS.at = Date.now();
     return data;

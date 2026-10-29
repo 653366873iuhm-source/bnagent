@@ -203,17 +203,31 @@ contract BnagentForkTest is Test {
         assertEq(mint.priceCents(20_001), 210);
         assertEq(mint.priceCents(21_001), 212);
         assertEq(mint.priceCents(30_000), 228);
-        uint256 sum;
-        for (uint256 n = 1; n <= 30_000; n++) {
-            sum += mint.priceCents(n);
+        assertEq(mint.priceCents(100_000), 368);
+        assertEq(mint.priceCents(100_001), 370);
+        assertEq(mint.priceCents(1_000_000), 548);
+        assertEq(mint.priceCents(1_000_001), 550);
+        assertEq(mint.priceCents(1_020_001), 552);
+        assertEq(mint.priceCents(4_440_000), 807);
+        assertEq(mint.priceCents(4_440_001), 808);
+        assertEq(mint.priceCents(100_000_000), 7_974);
+        uint256 tiers;
+        uint256 last;
+        for (uint256 n = 1; n <= 100_000_000; n += (n < 1_000_001 ? 1_000 : 20_000)) {
+            uint256 c = mint.priceCents(n);
+            if (c != last) {
+                tiers++;
+                last = c;
+            }
         }
-        assertEq(sum, 4_740_000, "47,400 USDT total");
-        uint256 sellable;
-        for (uint256 n = 1_101; n <= 30_000; n++) {
-            sellable += mint.priceCents(n);
-        }
-        assertEq(sellable, 4_630_000, "46,300 USDT for the 28,900 sellable shares");
-        assertEq(mint.LINE_DENOM(), 46_300);
+        assertEq(tiers, 5_131, "5,131 price tiers");
+        uint256 sum = 10_000 * 100;
+        for (uint256 k; k < 10; k++) sum += 1_000 * (110 + 10 * k);
+        for (uint256 k; k < 80; k++) sum += 1_000 * (210 + 2 * k);
+        for (uint256 k; k < 90; k++) sum += 10_000 * (370 + 2 * k);
+        for (uint256 k; k < 4_950; k++) sum += 20_000 * ((5_500 + 15 * k + 5) / 10);
+        assertEq(sum, 422_376_770_000, "4,223,767,700 USDT total");
+        assertEq(sum - 1_100 * 100, mint.LINE_DENOM() * 100, "LINE_DENOM = sellable total");
     }
 
     function test_PausedAtDeployAndAdmin() public {
@@ -350,7 +364,7 @@ contract BnagentForkTest is Test {
         // reference: swap to USDT; 80% of the table cost parked, 20% + any surplus to the treasury
         uint256 d = usdt.balanceOf(treasury) - uBefore;
         assertGe(d, 0.6 ether, "20% of cost to treasury");
-        assertLe(d, 0.66 ether, "20% + ~1% headroom surplus");
+        assertLe(d, 0.75 ether, "20% + ~1% headroom surplus (+ Chainlink vs PancakeSwap drift on the live fork)");
         assertEq(treasury.balance, tBefore, "treasury receives USDT, not BNB");
         _assertParked();
         uint256 one = mint.bnbQuote(1);
@@ -614,15 +628,11 @@ contract BnagentForkTest is Test {
     function _flowEnd() internal {
         burnsB = _bulkMint(30_000 - mint.totalMinted());
         assertEq(mint.totalMinted(), 30_000);
-        assertEq(mint.totalPaid(), 46_300 ether, "total paid = sellable price table");
+        assertEq(mint.totalPaid(), 46_300 ether, "total paid #1,101-#30,000");
         assertEq(mint.soldShares(), 28_900);
-        _newBulkId();
-        vm.prank(bulk);
-        vm.expectRevert(BnagentMint.SoldOut.selector);
-        mint.mint(1, address(0), 10 ether);
+        assertEq(mint.mintableNow(), 100_000_000 - 30_000, "minting continues past 30,000");
         assertLe(token.totalSupply(), token.MAX_SUPPLY());
         assertEq(usdt.balanceOf(address(mint)), 0, "mint contract keeps no USDT");
-        // treasury USDT = 20% of every share + BNB swap surplus
         uint256 surplus = usdtFromBnb - usdPaidInBnb;
         assertEq(usdt.balanceOf(treasury) - treasuryUsdt0, 9_260 ether + surplus, "20% of 46,300 + BNB surplus");
         assertGt(treasury.balance, treasuryBnb0, "tax BNB to treasury");
@@ -643,9 +653,31 @@ contract BnagentForkTest is Test {
         console2.log("floor line (USDT):", mint.floorValue() / 1e18);
         console2.log("treasury USDT gained:", (usdt.balanceOf(treasury) - treasuryUsdt0) / 1e18);
         console2.log("treasury BNB gained (wei):", treasury.balance - treasuryBnb0);
+        _soldOutAtCap();
     }
 
     // ------------------------------------------------------------------ griefing on the empty pair
+
+    /// @dev Jumps totalMinted to just below the cap (storage write) and checks the sold-out edge.
+    function _soldOutAtCap() internal {
+        uint256 slot = 0; // forge inspect: totalMinted is slot 0
+        uint256 saved = mint.totalMinted();
+        vm.store(address(mint), bytes32(slot), bytes32(uint256(99_999_995)));
+        assertEq(mint.totalMinted(), 99_999_995, "slot");
+        _newBulkId();
+        vm.prank(bulk);
+        vm.expectRevert(BnagentMint.SoldOut.selector);
+        mint.mint(10, address(0), type(uint256).max);
+        vm.prank(bulk);
+        mint.mint(5, address(0), type(uint256).max);
+        assertEq(mint.totalMinted(), 100_000_000);
+        assertEq(mint.mintableNow(), 0);
+        _newBulkId();
+        vm.prank(bulk);
+        vm.expectRevert(BnagentMint.SoldOut.selector);
+        mint.mint(1, address(0), type(uint256).max);
+        vm.store(address(mint), bytes32(slot), bytes32(saved));
+    }
 
     /// @notice USDT donated to the empty pair + sync() (reserves USDT>0, token=0) cannot brick the automatic open.
     function test_GriefEmptyPairDonateAndSync() public {
@@ -795,7 +827,7 @@ contract BnagentForkTest is Test {
         assertEq(mint.unfilledWithdrawals(), 1);
         assertEq(mint.totalUnfilledWithdrawn(), 10.4 ether);
         assertFalse(mint.paused(), "minting continues");
-        assertEq(mint.mintableNow(), 30_000 - 1_113);
+        assertEq(mint.mintableNow(), 100_000_000 - 1_113);
         assertTrue(mint.canWithdrawUnfilled(), "repeatable");
 
         // minting continues after the withdraw (USDT; the BNB feed is stale on a warped fork)
@@ -909,12 +941,12 @@ contract BnagentForkTest is Test {
     /// @notice Shares #1-#1,100 are burned at deploy: no tokens, no USDT; selling starts at #1,101 for 1 USDT.
     function test_BurnedShares() public {
         assertEq(mint.BURNED_SHARES(), 1_100);
-        assertEq(mint.SELLABLE_SHARES(), 28_900);
+        assertEq(mint.SELLABLE_SHARES(), 99_998_900);
         assertEq(mint.totalMinted(), 1_100);
         assertEq(mint.soldShares(), 0);
         assertEq(mint.totalPaid(), 0);
         assertEq(token.totalSupply(), 0, "no tokens for burned shares");
-        assertEq(mint.mintableNow(), 28_900);
+        assertEq(mint.mintableNow(), 99_998_900);
         assertEq(mint.costOf(1), 1 ether);
         assertEq(mint.costOf(10), 10 ether);
         vm.expectEmit(true, true, false, true, address(mint));

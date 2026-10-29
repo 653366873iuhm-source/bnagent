@@ -6,7 +6,7 @@ import {IV2Factory} from "./interfaces/IExternal.sol";
 
 /// @title BNAGENT token
 /// @notice Same rules and public interface as the $JAGENT token (BSC 0x8e64…5aE15), with these
-///         intended differences only: name BNAGENT and cap 4.44T.
+///         intended differences only: name BNAGENT and cap 10,000T.
 ///         Minted only by the mint contract (the contract that deploys it), up to MAX_SUPPLY including
 ///         the dead address. Before the pool opens only mint-contract sends move (the mint contract
 ///         opens the pool itself at share 10,000). After that every wallet and plain contract can receive. Only pool-like receivers
@@ -15,7 +15,7 @@ import {IV2Factory} from "./interfaces/IExternal.sol";
 ///         contract. Sells send 1% to dead and leave 1% with the mint contract. Nothing else is taxed and
 ///         no swap ever runs inside a user's own transfer.
 contract BnagentToken is ERC20 {
-    uint256 public constant MAX_SUPPLY = 4_440_000_000_000 ether; // 4.44T
+    uint256 public constant MAX_SUPPLY = 10_000_000_000_000_000 ether; // 10,000T
     uint256 public constant BUY_TAX_BPS = 100;
     uint256 public constant SELL_BURN_BPS = 100;
     uint256 public constant SELL_KEEP_BPS = 100;

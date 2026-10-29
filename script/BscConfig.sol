@@ -28,7 +28,7 @@ library BscConfig {
     uint256 internal constant FEED_MIN = 5_000_000_000; // $50 (8 decimals)
     uint256 internal constant FEED_MAX = 5_000_000_000_000; // $50,000
 
-    bytes32 internal constant SALT = keccak256("BNAGENT.mint.v1");
+    bytes32 internal constant SALT = keccak256("BNAGENT.mint.v2");
 
     function params(address socialSigner) internal pure returns (BnagentMint.Params memory p) {
         address[] memory keep = new address[](3);

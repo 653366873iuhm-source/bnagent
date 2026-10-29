@@ -11,11 +11,13 @@ import {IV2Factory, IV2Pair, IWrappedNative, IAgentIdRegistry, IPriceFeed, V2Mat
 /// @title BNAGENT mint
 /// @notice Same mechanism and public interface as the $JAGENT mint (BSC 0x3643…2aB8), with only these
 ///         intended differences (docs/JAGER-DIFF.md):
-///         (a) 30,000 shares; the reference price table truncated at 30,000 (47,400 USDT in total).
-///         (b) 4.44T cap; floor line paid x 83,492 / 46,300 (same ~1.8033x ratio); pool floor 116,666,667.
+///         (a) 100,000,000 shares; the reference price table (353 tiers to 8.07 USDT at 4,440,000) continued by its
+///             last rule (+0.015 USDT every 20,000 shares, rounded to the cent): 5,131 tiers, 79.74 USDT at 100,000,000.
+///         (b) 10,000T cap (a full sellout mints ~1,228T); floor line paid x 7,616,686,731 / 4,223,766,600 (reference
+///             ratio 50,000,000 / 27,727,060 over the sellable shares); pool floor 11,666,666,667 (reference).
 ///         (c) name BNAGENT; treasury 0x49E6…9BCE; own social-task signer.
 ///         (e) shares #1-#1,100 are burned at deploy (never sold, no tokens, no USDT): selling starts at #1,101
-///             (table price at that index), 28,900 sellable. The pool still opens on the tx reaching share 10,000,
+///             (table price at that index), 99,998,900 sellable. The pool still opens on the tx reaching share 10,000,
 ///             with the USDT actually parked (80% of 8,900 paid shares = 7,120) and the tokens actually parked at
 ///             the same pre-pool price (40M per 0.80 USDT = 50M per USDT -> 356B).
 ///         (d) 30-day safety valve: the clock starts when minting is first unpaused. If share 10,000 (the
@@ -33,28 +35,28 @@ import {IV2Factory, IV2Pair, IWrappedNative, IAgentIdRegistry, IPriceFeed, V2Mat
 contract BnagentMint is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    uint256 public constant TOTAL_SHARES = 30_000;
-    uint256 public constant MAX_SUPPLY = 4_440_000_000_000 ether;
+    uint256 public constant TOTAL_SHARES = 100_000_000;
+    uint256 public constant MAX_SUPPLY = 10_000_000_000_000_000 ether;
     uint256 public constant OPEN_AT = 10_000;
     /// @notice BNAGENT: shares #1-#1,100 are burned at deploy (never sold; no tokens, no USDT).
     uint256 public constant BURNED_SHARES = 1_100;
-    uint256 public constant SELLABLE_SHARES = TOTAL_SHARES - BURNED_SHARES; // 28,900
+    uint256 public constant SELLABLE_SHARES = TOTAL_SHARES - BURNED_SHARES; // 99,998,900
     uint256 public constant USER_SHARE = 50_000_000 ether;
     uint256 public constant POOL_SHARE = 40_000_000 ether;
     uint256 public constant TREASURY_BPS = 2_000;
     uint256 public constant MINT_PRICE_BPS = 9_900;
     /// @notice BNAGENT safety valve: time after the first unpause before withdrawUnfilled() may be called.
     uint256 public constant MINT_WINDOW = 30 days;
-    /// @dev Reference: 50,000,000 / 27,727,060. LINE_DENOM = price of the 28,900 sellable shares
-    ///      (#1,101-#30,000: 47,400 - 1,100 = 46,300); FLOOR_LINE = 46,300 x 50,000,000 / 27,727,060 = 83,492.4
-    ///      -> 83,492 (same ~1.8033x ratio).
-    uint256 public constant FLOOR_LINE = 83_492;
-    uint256 public constant CEIL_LINE = 100_191; // 46,300 x 60,000,000 / 27,727,060 (view only, as in the reference)
-    uint256 public constant LINE_DENOM = 46_300;
+    /// @dev Reference: 50,000,000 / 27,727,060. LINE_DENOM = price of the 99,998,900 sellable shares
+    ///      (#1,101-#100,000,000: 4,223,767,700 - 1,100 = 4,223,766,600 USDT); FLOOR_LINE = 4,223,766,600 x 50,000,000 /
+    ///      27,727,060 = 7,616,686,731.3 -> 7,616,686,731 (same ratio as the reference).
+    uint256 public constant FLOOR_LINE = 7_616_686_731;
+    uint256 public constant CEIL_LINE = 9_140_024_078; // 4,223,766,600 x 60,000,000 / 27,727,060 (view only)
+    uint256 public constant LINE_DENOM = 4_223_766_600;
     uint256 public constant RISE_NUM = 1_008;
     uint256 public constant RISE_DEN = 1_000;
-    /// @dev Reference 11,666,666,667 under a 444T cap, scaled by the cap ratio 1/100.
-    uint256 public constant POOL_TOKEN_FLOOR = 116_666_667 ether;
+    /// @dev Reference value (444T cap).
+    uint256 public constant POOL_TOKEN_FLOOR = 11_666_666_667 ether;
     uint256 public constant TAX_SWAP_BPS = 10;
     uint256 public constant BNB_EXTRA_BPS = 100;
     uint256 public constant BASE_PER_ID = 10;
@@ -199,11 +201,13 @@ contract BnagentMint is ReentrancyGuard {
 
     // ---------------------------------------------------------------- views
 
-    /// @notice Reference price table, truncated at 30,000 shares (cents).
+    /// @notice Reference price table continued to 100,000,000 shares (cents; 5,131 tiers, 100 -> 7,974; 807 at 4,440,000).
     function priceCents(uint256 n) public pure returns (uint256) {
         if (n <= 10_000) return 100;
         if (n <= 20_000) return 110 + 10 * ((n - 10_001) / 1_000);
-        return 210 + 2 * ((n - 20_001) / 1_000);
+        if (n <= 100_000) return 210 + 2 * ((n - 20_001) / 1_000);
+        if (n <= 1_000_000) return 370 + 2 * ((n - 100_001) / 10_000);
+        return (5_500 + 15 * ((n - 1_000_001) / 20_000) + 5) / 10;
     }
 
     function costOf(uint256 shares) public view returns (uint256 cost) {
@@ -388,7 +392,7 @@ contract BnagentMint is ReentrancyGuard {
     ///         sent here) to the treasury and resets the parked USDT to 0. The tokens parked for the pool
     ///         (40M per share) are sent to the dead address and the parked token counter is reset, so a pool
     ///         that opens later still opens at the pre-pool price (50M per USDT) with only what was parked after
-    ///         this call. Dead tokens stay counted in totalSupply, so the 4.44T cap can never be exceeded.
+    ///         this call. Dead tokens stay counted in totalSupply, so the 10,000T cap can never be exceeded.
     ///         MINTING CONTINUES. Repeatable any number of times until the pool opens; never after.
     function withdrawUnfilled() external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();

@@ -37,10 +37,18 @@
   $("langBtn").onclick = () => setLang(lang === "en" ? "zh" : "en");
 
   // ---------------------------------------------------------------- price table (mirrors priceCents in the contract)
-  const priceCents = (n) => (n <= 10000 ? 100 : n <= 20000 ? 110 + 10 * Math.floor((n - 10001) / 1000) : 210 + 2 * Math.floor((n - 20001) / 1000));
-  // tiers like jager.live's "Tiered pricing": tier 1 = shares 1,101–10,000 at 1U, then one tier per 1,000 shares (21 tiers, max 2.28U)
-  const tierOf = (n) => (n <= 10000 ? 1 : 2 + Math.floor((n - 10001) / 1000));
-  const tierEnd = (n) => (n <= 10000 ? 10000 : 10000 + (tierOf(n) - 1) * 1000);
+  const priceCents = (n) => (n <= 10000 ? 100 : n <= 20000 ? 110 + 10 * Math.floor((n - 10001) / 1000) : n <= 100000 ? 210 + 2 * Math.floor((n - 20001) / 1000) : n <= 1000000 ? 370 + 2 * Math.floor((n - 100001) / 10000) : Math.floor((5500 + 15 * Math.floor((n - 1000001) / 20000) + 5) / 10));
+  // tiers like jager.live's "Tiered pricing", continued to 100,000,000 shares (5,131 tiers, 1U -> 79.74U; 8.07U at 4,440,000): tier 1 = shares 1-10,000 (1,101-10,000 sold), then
+  // 10 x 1,000 (+0.10U), 80 x 1,000 (+0.02U), 90 x 10,000 (+0.02U), 4,950 x 20,000 (+0.015U, rounded to the cent)
+  const TIERS = (() => {
+    const t = [[1, 10000]];
+    for (let k = 0; k < 90; k++) t.push([10001 + k * 1000, 11000 + k * 1000]);
+    for (let k = 0; k < 90; k++) t.push([100001 + k * 10000, 110000 + k * 10000]);
+    for (let k = 0; k < 4950; k++) t.push([1000001 + k * 20000, 1020000 + k * 20000]);
+    return t;
+  })();
+  const tierOf = (n) => (n <= 10000 ? 1 : n <= 100000 ? 2 + Math.floor((n - 10001) / 1000) : n <= 1000000 ? 92 + Math.floor((n - 100001) / 10000) : 182 + Math.floor((n - 1000001) / 20000));
+  const tierEnd = (n) => TIERS[tierOf(n) - 1][1];
   const uFmt = (cents) => String(+(cents / 100).toFixed(2));
 
   // ---------------------------------------------------------------- minimal JSON-RPC / ABI (public BSC RPC for reads)
@@ -140,7 +148,7 @@
 
   function render() {
     const s = state;
-    const BURNED = 1100, TOTAL = 30000;
+    const BURNED = 1100, TOTAL = 100000000;
     const progress = (m) => {
       $("sMinted").textContent = m.toLocaleString();
       $("hMinted").textContent = m.toLocaleString();
@@ -157,7 +165,7 @@
       $("hPrice").textContent = uFmt(s.nextCents || priceCents(next));
       renderReceive();
       const nt = tierEnd(next) < TOTAL ? priceCents(tierEnd(next) + 1) : 0;
-      $("sTotal").innerHTML = `<span class="en">Total shares <span class="tv">${s.minted.toLocaleString()}</span> / 30,000${nt ? ` · Rises to ${uFmt(nt)}U at ${tierEnd(next).toLocaleString()}` : ""}</span><span class="zh">总份数 <span class="tv">${s.minted.toLocaleString()}</span> / 30,000${nt ? ` · 第 ${tierEnd(next).toLocaleString()} 份后涨至 ${uFmt(nt)}U` : ""}</span>`;
+      $("sTotal").innerHTML = `<span class="en">Total shares <span class="tv">${s.minted.toLocaleString()}</span> / 100,000,000${nt ? ` · Rises to ${uFmt(nt)}U at ${tierEnd(next).toLocaleString()}` : ""}</span><span class="zh">总份数 <span class="tv">${s.minted.toLocaleString()}</span> / 100,000,000${nt ? ` · 第 ${tierEnd(next).toLocaleString()} 份后涨至 ${uFmt(nt)}U` : ""}</span>`;
       $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens automatically at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时自动开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
       $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
       markTier(next);
@@ -174,11 +182,23 @@
     renderQty();
     if ($("inviteModal").open) renderInvite();
   }
+  function buildTiers() {
+    const body = $("tierBody"); if (!body || body.dataset.built) return;
+    const rows = ['<tr data-from="1" data-to="1100" class="burned"><td>—</td><td>1 - 1,100</td><td><span class="en">Burned at deploy (never sold)</span><span class="zh">部署时销毁（不出售）</span></td></tr>'];
+    TIERS.forEach(([a, b], i) => {
+      const from = i === 0 ? 1101 : a;
+      rows.push(`<tr data-from="${from}" data-to="${b}" data-tier="${i + 1}"><td>${i + 1}</td><td>${from.toLocaleString("en-US")} - ${b.toLocaleString("en-US")}</td><td>= ${uFmt(priceCents(a))}U<span class="cur"></span></td></tr>`);
+    });
+    body.innerHTML = rows.join("");
+    body.dataset.built = "1";
+  }
+  buildTiers();
   function markTier(next) {
     document.querySelectorAll("#tierBody tr[data-from]").forEach((tr) => {
       const on = next >= +tr.dataset.from && next <= +tr.dataset.to;
       tr.classList.toggle("now", on); if (on) tr.setAttribute("aria-current", "step"); else tr.removeAttribute("aria-current");
       const c = tr.querySelector(".cur"); if (c) c.textContent = on ? T(" · Current", " · 当前") : "";
+      if (on && !markTier.done) { markTier.done = 1; const w = tr.closest(".tierwrap"); if (w) w.scrollTop = Math.max(0, tr.offsetTop - 80); }
     });
   }
   // "You receive (est.)" like jager.live: shares × 50,000,000 before the pool, else cost / (pool price × 0.99)
@@ -398,7 +418,7 @@
     else if (W.handle === "" ) label = T("This wallet has no .ai Agent ID", "该钱包没有 .ai Agent ID");
     else if (!s) label = T("Loading…", "加载中…");
     else if (s.paused) label = T("Minting is paused", "铸造已暂停");
-    else if (s.minted >= 30000) label = T("Sold out", "已售罄");
+    else if (s.minted >= 100000000) label = T("Sold out", "已售罄");
     else if (s.mintable === 0) label = T("Minting ended", "铸造已结束");
     else if (W.status && W.status.quota - W.status.minted <= 0) label = T("Quota used · Invite or do tasks to earn more", "额度已用完 · 邀请或做任务获得更多");
     else { const u = $("costOut").dataset.u || "—", bnb = pay === "bnb"; label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${u}U${bnb ? " in BNB" : ""}`, `铸造 ${qty()} 份 · ${u}U${bnb ? "（BNB 支付）" : ""}`); ok = true; }
