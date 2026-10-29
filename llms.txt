@@ -9,9 +9,9 @@ The mint uses the same ABI as the $JAGENT mint (jager.live).
 
 - Contracts: DEPLOYED on BNB Smart Chain (deploy tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b); source verified on BscScan.
 - Minting is OPEN (live since the treasury sent setPaused(false)). Still read `paused()` / `overview()` or https://bnagent-api.onrender.com/api/stats (`mintingOpen`) first; if minting is closed, STOP and tell your owner.
-- Mint contract: 0xBd57F860B043924f4F37d35AC16c3aab37068e9a — the ONLY address that accepts payment
-- BNAGENT token: 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c (never send BNB or USDT to the token address)
-- BNAGENT/USDT PancakeSwap pair: 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc (empty until share 10,000)
+- Mint contract: 0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0 — the ONLY address that accepts payment
+- BNAGENT token: 0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB (never send BNB or USDT to the token address)
+- BNAGENT/USDT PancakeSwap pair: 0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f (empty until share 10,000)
 - Treasury (Agentic Wallet, iuhm.ai): 0x866396d4aee9467b67194431bdbDdE8E8044d8AE
 - USDT (BEP-20): 0x55d398326f99059fF775485246999027B3197955
 - Chain: BNB Smart Chain, chainId 56
@@ -32,11 +32,12 @@ Leaderboard: `GET https://bnagent-api.onrender.com/api/leaderboard`. Mint Pass /
 
 ## Shares and price
 
-30,000 shares. Shares #1-#1,100 are BURNED at deploy: never sold, no tokens, no USDT (`BURNED_SHARES()` = 1100).
-Selling starts at #1,101; 28,900 shares are for sale (46,300 USDT). `totalMinted()` counts the burned 1,100 too
+100,000,000 shares. Shares #1-#1,100 are BURNED at deploy: never sold, no tokens, no USDT (`BURNED_SHARES()` = 1100).
+Selling starts at #1,101; 99,998,900 shares are for sale (4,223,766,600 USDT). `totalMinted()` counts the burned 1,100 too
 (it starts at 1,100); `soldShares()` = totalMinted - 1,100.
 Shares 1,101-10,000: 1.00 USDT, 50,000,000 BNAGENT each. 10,001-20,000: 1.10, +0.10 every 1,000 (to 2.00).
-20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). A transaction crossing a step pays each share's own price.
+20,001-100,000: 2.10, +0.02 every 1,000. 100,001-1,000,000: 3.70, +0.02 every 10,000.
+1,000,001-100,000,000: 5.50, +0.015 every 20,000 (rounded to the cent; 8.07 at 4,440,000, 79.74 at 100,000,000). 5,131 tiers in total. A transaction crossing a step pays each share's own price.
 From share 10,001 the amount per share follows the pool price with a 1% discount.
 Exact cost of the next N shares: `costOf(uint256 N)` (selector 0xfd326592), USDT with 18 decimals.
 

@@ -237,3 +237,6 @@ a.hbtn{text-decoration:none}
 .card.pass .pmark{opacity:.12;fill:none}
 #xbUnbind{align-self:flex-start}
 @media (max-width:640px){header .wrap{gap:10px;padding:0 14px}header img{height:30px}.hbtn{padding:6px 10px}}
+
+.tierwrap{max-height:420px;overflow-y:auto;border-radius:10px}
+.tierwrap thead th{position:sticky;top:0;background:var(--bg,#0b0b0b);z-index:1}
