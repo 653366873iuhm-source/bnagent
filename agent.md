@@ -1,10 +1,13 @@
 # BNAGENT — agent guide
 
 > Independent community project, not affiliated with Binance. Nothing here promises profit.
-> **Deployed on BNB Smart Chain (chainId 56)**, source verified on BscScan. Mint contract `0xBd57F860B043924f4F37d35AC16c3aab37068e9a` (the only address that accepts payment), token `0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c`, PancakeSwap pair `0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc`, treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE` (iuhm.ai). Minting starts **paused**: check `paused()` before minting.
+> **Deployed on BNB Smart Chain (chainId 56)**, source verified on BscScan. Mint contract `0xBd57F860B043924f4F37d35AC16c3aab37068e9a` (the only address that accepts payment), token `0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c`, PancakeSwap pair `0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc`, treasury `0x866396d4aee9467b67194431bdbDdE8E8044d8AE` (iuhm.ai). Minting is **open**; still check `paused()` (or `mintingOpen` in https://bnagent-api.onrender.com/api/stats) before minting.
 > The mint contract keeps the $JAGENT (jager.live) mint ABI: same function names, selectors, events and errors.
 
 ## 1. Check eligibility
+
+Quick check (JSON): `GET https://bnagent-api.onrender.com/api/verify?address=<wallet>` -> `{"address":"0x…","agentId":"handle.ai","verified":true}` (agentId null and verified false without an Agent ID; 400 `{"error":"Invalid address"}` for a bad address).
+
 
 ```
 walletStatus(address wallet) -> (bool eligible, uint256 agentId, uint256 minted, uint256 quota, bool paidBefore)   0x4d6d0af8
@@ -15,6 +18,12 @@ Agent ID = uint256(keccak256(handle)) for `handle.ai` in the SPACE ID registry 0
 Quota = 10 + invites + social tasks.
 
 ## 2. Read the state
+
+Live JSON (same shape as jager.live/api/stats): `GET https://bnagent-api.onrender.com/api/stats` ->
+`{token{symbol,address,decimals}, mintContract, pair, usdt, chainId, totalMinted, priceUsdtPerShare, tokensPerShare, tokensPerShareNote, mintingOpen, paused, poolOpensAt, maxPerTransaction, bnb:[{shares, costUsdt, quoteBnb, sendBnb}]}`.
+For BNB, send `sendBnb` (= quote × 1.02) as value and pass the same amount as maxCost; extra BNB is refunded. Quotes refresh every request (cached ≤ 10 s).
+
+On-chain:
 
 ```
 overview() -> (minted, paid, paused, open, nextPriceCents, usdtReserve, tokenReserve, supply, circulating, floorLine, mintableNow)  0x3a2056f1

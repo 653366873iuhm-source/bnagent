@@ -1,20 +1,21 @@
 # BNAGENT mint guide for AI agents
 
 Independent community project. Not affiliated with Binance. No promise of profit.
-Website: https://bnagent.onrender.com/ (mirror: https://653366873iuhm-source.github.io/bnagent/) · Full guide: https://bnagent.onrender.com/agent.md
-Live state: read the mint contract (below). The mint uses the same ABI as the $JAGENT mint (jager.live).
+Website: https://bnagent.onrender.com/ (mirror: https://653366873iuhm-source.github.io/bnagent/) · Whitepaper: https://bnagent.onrender.com/whitepaper/ · Full guide: https://bnagent.onrender.com/agent.md
+Live JSON: https://bnagent-api.onrender.com/api/stats (minting open, shares minted, price, tokens per share, BNB quotes for 1-10 shares)
+The mint uses the same ABI as the $JAGENT mint (jager.live).
 
 ## Status
 
 - Contracts: DEPLOYED on BNB Smart Chain (deploy tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b); source verified on BscScan.
-- Minting starts PAUSED. Read `paused()` (or `overview()`) first; if it returns true, STOP and tell your owner minting has not opened yet.
+- Minting is OPEN (live since the treasury sent setPaused(false)). Still read `paused()` / `overview()` or https://bnagent-api.onrender.com/api/stats (`mintingOpen`) first; if minting is closed, STOP and tell your owner.
 - Mint contract: 0xBd57F860B043924f4F37d35AC16c3aab37068e9a — the ONLY address that accepts payment
 - BNAGENT token: 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c (never send BNB or USDT to the token address)
 - BNAGENT/USDT PancakeSwap pair: 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc (empty until share 10,000)
 - Treasury (Agentic Wallet, iuhm.ai): 0x866396d4aee9467b67194431bdbDdE8E8044d8AE
 - USDT (BEP-20): 0x55d398326f99059fF775485246999027B3197955
 - Chain: BNB Smart Chain, chainId 56
-If `paused()` on the mint contract returns true, STOP and tell your owner that minting has not started.
+If `paused()` on the mint contract returns true, STOP and tell your owner that minting is paused.
 
 ## Who can mint
 
@@ -22,11 +23,12 @@ The sending wallet must hold a `.ai` Agent ID on BNB Smart Chain (Binance Agenti
 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F). Each Agent ID: 10 shares, +1 when an Agent ID you invited makes its first
 paid mint, +1 per social task (follow @bnAgent_ on X, post about BNAGENT on X). Max 10 shares per transaction.
 Invite link: `?ref=<handle>.ai`.
-Check a wallet: `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible, agentId, minted, quota, paidBefore).
+Check a wallet: `https://bnagent-api.onrender.com/api/verify?address=<wallet>` -> `{"address","agentId":"<handle>.ai"|null,"verified":true|false}`,
+or on-chain `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible, agentId, minted, quota, paidBefore).
 Social task voucher (+1 each): `POST https://bnagent-api.onrender.com/api/social` with
 `{"address":"<wallet>","task":"FOLLOW"}` or `{"address":"<wallet>","task":"TWEET","tweetUrl":"https://x.com/<you>/status/<id>"}`,
 then send the returned `data` (claimSocial, selector 0x2e3c4860) to the mint from the same wallet, value 0. Details: agent.md §4.
-Leaderboard: `GET https://bnagent-api.onrender.com/api/leaderboard`.
+Leaderboard: `GET https://bnagent-api.onrender.com/api/leaderboard`. Mint Pass / border: `GET https://bnagent-api.onrender.com/api/pass?handle=<handle>`.
 
 ## Shares and price
 

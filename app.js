@@ -32,18 +32,16 @@
     if ($("walletModal").open) renderModal();
     if (typeof renderLb === "function" && LBV) renderLb();
     if ($("inviteModal").open) renderInvite();
+    if ($("passModal").open) renderPassModal();
   }
   $("langBtn").onclick = () => setLang(lang === "en" ? "zh" : "en");
 
   // ---------------------------------------------------------------- price table (mirrors priceCents in the contract)
   const priceCents = (n) => (n <= 10000 ? 100 : n <= 20000 ? 110 + 10 * Math.floor((n - 10001) / 1000) : 210 + 2 * Math.floor((n - 20001) / 1000));
-  function stepTable() {
-    let h = `<table><thead><tr><th>${T("Shares", "份数")}</th><th>${T("Price (USDT)", "价格 (USDT)")}</th></tr></thead><tbody>`;
-    h += `<tr data-from="1" data-to="1100" class="burned"><td>1 – 1,100</td><td>${T("burned at deploy (never sold)", "部署时销毁（不出售）")}</td></tr>`;
-    h += `<tr data-from="1101" data-to="10000"><td>1,101 – 10,000</td><td>1.00</td></tr>`;
-    for (let s = 10001; s <= 30000; s += 1000) h += `<tr data-from="${s}" data-to="${s + 999}"><td>${s.toLocaleString()} – ${(s + 999).toLocaleString()}</td><td>${(priceCents(s) / 100).toFixed(2)}</td></tr>`;
-    $("stepTable").innerHTML = h + "</tbody></table>";
-  }
+  // tiers like jager.live's "Tiered pricing": tier 1 = shares 1,101–10,000 at 1U, then one tier per 1,000 shares (21 tiers, max 2.28U)
+  const tierOf = (n) => (n <= 10000 ? 1 : 2 + Math.floor((n - 10001) / 1000));
+  const tierEnd = (n) => (n <= 10000 ? 10000 : 10000 + (tierOf(n) - 1) * 1000);
+  const uFmt = (cents) => String(+(cents / 100).toFixed(2));
 
   // ---------------------------------------------------------------- minimal JSON-RPC / ABI (public BSC RPC for reads)
   const pad = (hex) => hex.replace(/^0x/, "").padStart(64, "0");
@@ -127,11 +125,7 @@
     if (W.account) refreshWallet();
   }
 
-  function tierName(n) {
-    if (n <= 10000) return T("Tier 1 · 1.00 USDT", "第一档 · 1.00 USDT");
-    if (n <= 20000) return T("Tier 2 · 1.10 → 2.00", "第二档 · 1.10 → 2.00");
-    return T("Tier 3 · 2.10 → 2.28", "第三档 · 2.10 → 2.28");
-  }
+  const tierName = (n) => T(`Tier ${tierOf(n)} · ${uFmt(priceCents(n))}U`, `第 ${tierOf(n)} 档 · ${uFmt(priceCents(n))}U`);
   // shares radio 1..10 like jager.live: max = min(10, remaining quota); defaults to the max available
   let selQty = null;
   const avail = () => (W.status ? Math.min(Math.max(W.status.quota - W.status.minted, 0), 10) : 0);
@@ -145,12 +139,12 @@
   }
 
   function render() {
-    stepTable();
-    $("notDeployed").style.display = deployed ? "none" : "block";
     const s = state;
     const BURNED = 1100, TOTAL = 30000;
     const progress = (m) => {
       $("sMinted").textContent = m.toLocaleString();
+      $("hMinted").textContent = m.toLocaleString();
+      document.querySelectorAll("#sTotal .tv").forEach((e) => (e.textContent = m.toLocaleString()));
       $("sBar").style.width = (m / TOTAL * 100).toFixed(3) + "%"; // burned + minted, one gold bar
       $("sLegend").textContent = `Burned + Minted ${m.toLocaleString()} / ${TOTAL.toLocaleString()}`;
     };
@@ -160,28 +154,41 @@
       progress(s.minted);
       $("sTier").textContent = s.minted >= TOTAL ? T("Sold out", "已售罄") : tierName(next);
       $("sNext").textContent = s.minted >= TOTAL ? "–" : "#" + next.toLocaleString();
-      $("sPrice").textContent = s.nextCents ? (s.nextCents / 100).toFixed(2) + " USDT" : "–";
-      if (!s.open) $("sGet").textContent = "50,000,000 BNAGENT";
-      else if (s.u > 0n) $("sGet").textContent = "≈ " + fmt((BigInt(s.nextCents) * 10n ** 16n * s.t * 10000n) / (s.u * 9900n), 0) + " BNAGENT";
+      $("hPrice").textContent = uFmt(s.nextCents || priceCents(next));
+      renderReceive();
+      const nt = tierEnd(next) < TOTAL ? priceCents(tierEnd(next) + 1) : 0;
+      $("sTotal").innerHTML = `<span class="en">Total shares <span class="tv">${s.minted.toLocaleString()}</span> / 30,000${nt ? ` · Rises to ${uFmt(nt)}U at ${tierEnd(next).toLocaleString()}` : ""}</span><span class="zh">总份数 <span class="tv">${s.minted.toLocaleString()}</span> / 30,000${nt ? ` · 第 ${tierEnd(next).toLocaleString()} 份后涨至 ${uFmt(nt)}U` : ""}</span>`;
       $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens automatically at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时自动开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
       $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
-      document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", next >= +tr.dataset.from && next <= +tr.dataset.to));
+      markTier(next);
     } else {
-      progress(BURNED);
-      if (deployed) { $("sMinted").textContent = "–"; $("sLegend").textContent = `Burned + Minted – / ${TOTAL.toLocaleString()}`; }
-      $("sTier").textContent = tierName(1101); $("sNext").textContent = "#1,101"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
+      // no live read yet: keep the honest static placeholders (— for supply), never claim a state we have not read
+      $("sTier").textContent = tierName(1101);
       $("sPool").textContent = T("Opens automatically at share 10,000", "第 10,000 份时自动开池");
-      $("sPaused").textContent = deployed ? "–" : T("Contracts not deployed", "合约未部署");
-      document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", +tr.dataset.from === 1101));
     }
     updateCost();
-    const row = (k, v) => `<div class="row"><span>${k}</span><span class="mono addr">${isAddr(v) ? `<a href="${C.explorer}/address/${v}" target="_blank" rel="noopener">${v}</a>` : T("not deployed yet", "尚未部署")}</span></div>`;
-    $("addrBox").innerHTML = row(T("Mint contract", "铸造合约"), C.mint) + row(T("BNAGENT token", "BNAGENT 代币"), C.token) + row(T("BNAGENT/USDT pair", "BNAGENT/USDT 交易对"), C.pair) + row("USDT", C.usdt) + row(T("Agent ID registry", "Agent ID 注册表"), C.agentRegistry) + row(T("Treasury (Agentic Wallet)", "金库（Agentic Wallet）"), C.treasury);
     const sx = C.social || {};
     $("socialInfo").textContent = sx.x ? "X: @" + sx.x : "";
     renderWallet();
+    renderPassId();
     renderQty();
     if ($("inviteModal").open) renderInvite();
+  }
+  function markTier(next) {
+    document.querySelectorAll("#tierBody tr[data-from]").forEach((tr) => {
+      const on = next >= +tr.dataset.from && next <= +tr.dataset.to;
+      tr.classList.toggle("now", on); if (on) tr.setAttribute("aria-current", "step"); else tr.removeAttribute("aria-current");
+      const c = tr.querySelector(".cur"); if (c) c.textContent = on ? T(" · Current", " · 当前") : "";
+    });
+  }
+  // "You receive (est.)" like jager.live: shares × 50,000,000 before the pool, else cost / (pool price × 0.99)
+  function renderReceive() {
+    const s = state; if (!s) return;
+    const n = W.handle ? qty() : 1;
+    let v = null;
+    if (s.minted + n <= 10000) v = 50000000 * n;
+    else if (s.u > 0n) { let cents = 0; for (let i = 1; i <= n; i++) cents += priceCents(s.minted + i); v = (cents / 100) / (0.99 * (Number(s.u) / Number(s.t))); }
+    $("sGet").textContent = v == null ? "—" : "≈ " + Math.floor(v).toLocaleString("en-US");
   }
 
   async function updateCost() {
@@ -194,6 +201,7 @@
     }
     $("costOut").textContent = "≈ " + txt;
     $("costOut").dataset.u = (cents / 100).toFixed(2).replace(/\.?0+$/, "");
+    renderReceive();
     renderMintButton();
   }
   const setPay = (v) => { pay = v; [["payUsdt", "usdt"], ["payBnb", "bnb"]].forEach(([id, k]) => { $(id).classList.toggle("on", k === v); $(id).setAttribute("aria-checked", String(k === v)); }); updateCost(); };
@@ -350,18 +358,21 @@
     } else W.agentOk = !!W.handle;
     if (a !== W.account) return;
     render();
+    loadPass();
   }
 
   function renderWallet() {
     const box = $("walletBox");
     if (!W.account) {
       box.innerHTML = `<div class="small">${T("Not connected. Connect the wallet that holds your .ai Agent ID.", "未连接。请连接持有 .ai Agent ID 的钱包。")}</div>`;
+      box.classList.add("off");
       $("connectBtn").style.display = "";
       $("disconnectBtn").style.display = "none";
       return;
     }
     $("connectBtn").style.display = "none";
     $("disconnectBtn").style.display = "";
+    box.classList.remove("off");
     const onBsc = W.chainId === BSC;
     const chainTxt = onBsc ? `<span class="okc">BNB Smart Chain (56) ✓</span>` : `<span class="badc">${T("Wrong network", "网络错误")} (chainId ${W.chainId ? parseInt(W.chainId, 16) : "?"})</span> <button class="mini" id="switchBtn">${T("Switch to BSC", "切换到 BSC")}</button>`;
     const agent = W.handle === null ? "…" : W.handle ? `<span class="okc">${esc(W.handle)}.ai ✓</span>` : `<span class="badc">${T("no .ai Agent ID", "无 .ai Agent ID")}</span>`;
@@ -393,6 +404,7 @@
     else { const u = $("costOut").dataset.u || "—", bnb = pay === "bnb"; label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${u}U${bnb ? " in BNB" : ""}`, `铸造 ${qty()} 份 · ${u}U${bnb ? "（BNB 支付）" : ""}`); ok = true; }
     b.textContent = label;
     b.disabled = !ok;
+    b.style.display = W.account ? "" : "none"; // like jager.live: only the connect button until a wallet is connected
   }
 
   // ---------------------------------------------------------------- wallet chooser modal
@@ -622,6 +634,14 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     try { const g = BigInt(await rpc("eth_estimateGas", [tx])); tx.gas = "0x" + ((g * 12n) / 10n).toString(16); } catch (e) { /* let the wallet estimate */ }
     return W.provider.request({ method: "eth_sendTransaction", params: [tx] });
   }
+  // after a mint, like jager.live: "Minted N shares from #X · BscScan · Share Mint Pass" + the Mint successful dialog
+  function minted(hash, n) {
+    const first = state ? state.minted + 1 : null;
+    $("status").innerHTML = `${T(`Minted ${n} share${n > 1 ? "s" : ""}`, `已铸造 ${n} 份`)}${first ? T(` from #${first.toLocaleString()}`, `（自 #${first.toLocaleString()}）`) : ""} · <a href="${C.explorer}/tx/${esc(hash)}" target="_blank" rel="noreferrer">BscScan</a> · <button type="button" class="linkbtn" id="shareAfter">${T("Share Mint Pass", "分享 Mint Pass")}</button>`;
+    $("status").className = "status ok";
+    $("shareAfter").onclick = () => openPass({ txHash: hash });
+    refreshWallet().then(() => openPass({ txHash: hash }));
+  }
   $("mintBtn").onclick = async () => {
     if (!deployed || !W.account) return;
     if (W.chainId !== BSC) { await switchToBsc(); if (W.chainId !== BSC) return; }
@@ -643,6 +663,7 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
         status(T("Waiting for confirmation…", "等待确认…"));
         const ok = await waitTx(h);
         status(ok ? T("Minted!", "铸造成功！") : T("Transaction reverted on-chain.", "交易在链上失败。"), ok ? "ok" : "bad");
+        if (ok) minted(h, q);
       } else {
         const need = words(await call(C.mint, SEL.bnbQuote + encU(q)))[0];
         const sendV = (need * 102n) / 100n;
@@ -651,6 +672,7 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
         status(T("Waiting for confirmation…", "等待确认…"));
         const ok = await waitTx(h);
         status(ok ? T("Minted! Extra BNB was refunded.", "铸造成功！多余 BNB 已退回。") : T("Transaction reverted on-chain.", "交易在链上失败。"), ok ? "ok" : "bad");
+        if (ok) minted(h, q);
       }
       load();
     } catch (e) { status(errText(e), "bad"); }
@@ -705,8 +727,11 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
       <section class="ivsec" aria-labelledby="tasks-heading"><div class="ivh"><h3 id="tasks-heading">${ICON_LIST}${T("Social tasks", "社交任务")} <span class="mut">${T("· +1 each, once", "· 每项 +1，仅一次")}</span></h3><span class="cnt" id="ivTasksDone">${doneN} / ${TASKS.length} ${T("done", "完成")}</span></div>
         <p class="ivp">${T("Each task adds +1 share of quota, once per Agent ID.", "每项任务为每个 Agent ID 增加 +1 份额度，仅一次。")}</p>
         <ul class="tasks" id="ivTasks">${tasks}</ul></section>
+      ${bindXHtml()}
+      ${seasonHtml()}
     </div>`;
     $("ivClose").onclick = closeInvite;
+    wireXb();
     if ($("ivConnect")) $("ivConnect").onclick = () => { closeInvite(); openModal(); };
     $("inviteBody").querySelectorAll("[data-connect]").forEach((b) => (b.onclick = () => { closeInvite(); openModal(); }));
     $("inviteBody").querySelectorAll("[data-open]").forEach((a) => a.addEventListener("click", () => { IV.opened[a.dataset.open] = true; setTimeout(renderInvite, 50); }));
@@ -764,7 +789,7 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     if (!d && !LBV.err) h = `<li class="lbmsg">${T("Loading…", "加载中…")}</li>`;
     else if (!d && LBV.err) h = `<li class="lbmsg">${T("Leaderboard unavailable right now.", "排行榜暂时不可用。")}</li>`;
     else if (!rows.length) h = `<li class="lbmsg">${T("Nobody on this board yet.", "榜单暂无人上榜。")}</li>`;
-    else h = rows.map((r) => `<li class="lbrow${r.label === me ? " me" : ""}"><span class="rk${r.rank <= 3 ? " top" : ""}">${r.rank}</span><span class="nm">${esc(r.label)}${r.label === me ? ` <span class="small">${T("· You", "· 你")}</span>` : ""}</span><span class="val">${LBV.board === "holders" ? big(r.value) : Number(r.value).toLocaleString()}</span></li>`).join("");
+    else h = rows.map((r) => `<li class="lbrow${r.label === me ? " me" : ""}"><span class="rk${r.rank <= 3 ? " top" : ""}">${r.rank}</span><span class="nm">${diamond(r.level || 0)}${r.x ? `<a href="https://x.com/${esc(r.x)}" target="_blank" rel="noreferrer" title="@${esc(r.x)} on X"><span class="tr">${esc(r.label)}</span>${ICON_X2}</a>` : `<span class="tr">${esc(r.label)}</span>`}${r.label === me ? ` <span class="small">${T("· You", "· 你")}</span>` : ""}</span><span class="val">${LBV.board === "holders" ? big(r.value) : Number(r.value).toLocaleString()}</span></li>`).join("");
     $("lbList").innerHTML = h;
     $("lbList").setAttribute("aria-label", `Top ${b.key} this ${LBV.period}`);
   }
@@ -773,6 +798,185 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     catch (e) { if (!LBV.data) LBV.err = true; }
     renderLb();
     clearTimeout(LBV.timer); LBV.timer = setTimeout(loadLb, LBV.data && !LBV.data.syncing ? 300000 : 60000);
+  }
+
+  // ---------------------------------------------------------------- Mint Pass (jager.live): Agent ID status, border badge, preview / share dialog
+  const BORDERS = [
+    { name: "Bronze", cn: "青铜", min: 0, color: "#b87333", metal: "linear-gradient(135deg,#5a2e12,#e3a272 22%,#ffd3ad 32%,#a8592a 50%,#f0b48a 66%,#6e3a17 84%,#d08a5c)" },
+    { name: "Silver", cn: "白银", min: 7, color: "#c9d1d9", metal: "linear-gradient(135deg,#4b5563,#e5e7eb 20%,#ffffff 30%,#9ca3af 48%,#f3f4f6 64%,#6b7280 82%,#e5e7eb)" },
+    { name: "Gold", cn: "黄金", min: 14, color: "#f0b90b", metal: "linear-gradient(135deg,#7a5300,#f5d36b 18%,#fff1b8 28%,#c98d00 45%,#ffe08a 62%,#a86f00 80%,#f5d36b)" },
+    { name: "Platinum", cn: "铂金", min: 21, color: "#7fe0d0", metal: "linear-gradient(135deg,#1f5f58,#bff5ec 22%,#ffffff 32%,#5cc9b8 50%,#d8fff8 66%,#2f7f74 84%,#9fe9dc)" },
+    { name: "Diamond", cn: "钻石", min: 28, color: "#6ec8ff", metal: "linear-gradient(135deg,#0d3d66,#b5e3ff 22%,#ffffff 32%,#3fa9f5 50%,#d6f0ff 66%,#145a8f 84%,#8fd3ff)" },
+    { name: "Master", cn: "大师", min: 35, color: "#b57bff", metal: "linear-gradient(135deg,#3b1a66,#dcc2ff 22%,#ffffff 32%,#8d4dff 50%,#ecdcff 66%,#4e2490 84%,#c49cff)" },
+    { name: "King", cn: "王者", min: 42, color: "#ff5a5f", metal: "linear-gradient(135deg,#6b0f12,#ffb3b5 22%,#ffffff 32%,#e0282e 50%,#ffd6d7 66%,#8f1418 84%,#ff8a8d)" },
+  ];
+  const PASS = { data: null, handle: null, xb: null, result: null, lang: lang === "zh" ? "cn" : "en", copied: false, xbBusy: false, xbErr: "", xbUrl: "" };
+  const diamond = (lv) => { const b = BORDERS[lv] || BORDERS[0]; return `<span class="dia" title="${b.name} border" style="background:${b.color};box-shadow:0 0 6px ${b.color}88"><span class="sr">${b.name} border</span></span>`; };
+  const badge = (lv) => `<span class="bdg">${diamond(lv)}${(BORDERS[lv] || BORDERS[0]).name}</span>`;
+  async function loadPass() {
+    const h = W.handle || null;
+    if (!h) { PASS.data = null; PASS.xb = null; PASS.handle = null; return; }
+    if (PASS.handle !== h) { PASS.data = null; PASS.xb = null; PASS.handle = h; }
+    try { const r = await fetch(`${API}/api/pass?handle=${encodeURIComponent(h)}`, { cache: "no-store" }); if (r.ok) PASS.data = await r.json(); } catch (e) { /* API asleep: keep defaults */ }
+    try { const r = await fetch(`${API}/api/x-bind?handle=${encodeURIComponent(h)}`, { cache: "no-store" }); if (r.ok) PASS.xb = await r.json(); } catch (e) { /* ignore */ }
+    if (W.handle === h) { renderPassId(); if ($("inviteModal").open) renderInvite(); if ($("passModal").open) renderPassModal(); }
+  }
+  function renderPassId() {
+    const name = $("pName"), line = $("pLine"), bd = $("pBadges"); if (!name) return;
+    let n, l, dim = true;
+    if (!W.account) { n = T("Wallet not connected", "钱包未连接"); l = T("Connect the Binance Agentic Wallet that holds your .ai Agent ID", "连接持有 .ai Agent ID 的币安 Agentic Wallet"); }
+    else if (W.handle === null || (W.handle && !W.status && deployed)) { n = `<span class="spin" aria-hidden="true"></span>${T("Verifying", "验证中")}`; l = T("Looking up Agent ID on-chain…", "正在链上查询 Agent ID…"); }
+    else if (!W.handle) { n = T("No Agent ID", "没有 Agent ID"); l = T("This address holds no .ai Agent ID and cannot mint", "该地址没有 .ai Agent ID，无法铸造"); }
+    else { const st = W.status, left = Math.max(st.quota - st.minted, 0); n = esc(W.handle) + ".ai"; dim = false; l = T(`Agent ID verified · ${st.minted} of ${st.quota} shares used · ${left} left`, `Agent ID 已验证 · 已用 ${st.minted} / ${st.quota} 份 · 剩余 ${left}`); }
+    name.innerHTML = n; name.classList.toggle("dim", dim); name.classList.toggle("big", !dim);
+    line.textContent = l;
+    const pd = PASS.data;
+    bd.innerHTML = W.handle ? `${badge(pd ? pd.level : 0)}${pd ? `<span class="o7">${pd.points} pts</span>` : ""}${pd && pd.x ? `<span class="o8">@${esc(pd.x)}</span>` : ""}` : "";
+    bd.style.display = W.handle ? "" : "none";
+    const lv = BORDERS[(pd && pd.level) || 0];
+    $("passBtn").textContent = W.handle && W.status && W.status.minted > 0 ? T(`Share your Mint Pass · ${lv.name} border`, `分享你的 Mint Pass · ${lv.cn}边框`) : T("Preview your Mint Pass", "预览你的 Mint Pass");
+  }
+  function passCard() {
+    const pd = PASS.data, lv = Math.min(Math.max((pd && pd.level) || 0, 0), 6), b = BORDERS[lv];
+    return { handle: W.handle || "yourname", x: (pd && pd.x) || null, minted: (W.status && W.status.minted) || 0, level: lv, points: (pd && pd.points) || 0, date: new Date().toISOString().slice(0, 10), b };
+  }
+  function postText(cn, c) {
+    const id = `${c.handle}.ai`, link = `https://${SITE_HOST}/?ref=${id}`, x = c.x ? (cn ? `X：@${c.x}\n` : `X: @${c.x}\n`) : "";
+    return cn
+      ? `BNAGENT Mint Pass\n\nAgent：${id}\n${x}Border：${c.b.cn} ${c.b.name}\n\n只有币安 .ai Agent ID 可以铸造。\n继续铸造：${link}\n\nCA：${C.token}`
+      : `My BNAGENT Mint Pass\n\nAgent: ${id}\n${x}Border: ${c.b.name}\n\nNo Binance .ai Agent ID, no mint.\nKeep minting: ${link}\n\nCA: ${C.token}`;
+  }
+  function cardHtml(c) {
+    const rows = [["Agent", `${esc(c.handle)}.ai`], ["X", c.x ? "@" + esc(c.x) : "—"], ["Minted", `${c.minted} shares`], ["Border", `0${c.level + 1} / 07 ${c.b.name}`], ["Date", `${c.date} UTC`], ["Network", "BNB Chain"]];
+    return `<div class="mp3d" id="mp3d" tabindex="0" role="img" aria-label="${c.b.name} BNAGENT card. Drag or use the arrow keys to rotate."><div class="mpglow" style="background:${c.b.color}"></div>
+      <div class="mpcard" id="mpCard">
+        <div class="mpface front" style="--metal:${c.b.metal}"><div class="mptop"><span>BNAGENT<br>GENESIS 2026</span><span class="mpcoin"></span><span class="r">TIER 0${c.level + 1}<br>${c.b.name.toUpperCase()}</span></div>
+          <div class="mpwell"><div class="mpart"><div class="mpseal"><b>BNAGENT</b><i>2026</i></div><div class="mpplate"><b>BNAGENT</b><img src="assets/bnagent-mark-v3.svg" alt=""></div><div class="mptag">THE AI AGENT MINT<br>OF BNB CHAIN · ${esc(c.handle)}.ai</div><div class="mpholo"><b>BNAGENT</b><i>2026</i><em>${c.b.name.toUpperCase()}</em><small>COLLECTOR'S<br>EDITION</small></div></div></div>
+          <div class="mpfoot"><span>BUILT FOR AGENTIC WALLETS · AGENT ID ONLY</span><span class="mono">${esc(c.handle)}.ai</span></div></div>
+        <div class="mpface back" aria-hidden="true"><div class="mpback"><span class="mppill">${c.b.name.toUpperCase()} BORDER</span><img class="mplogo" src="assets/bnagent-lockup-v3.png" alt=""><span class="mpqr">${qrSvg("https://" + SITE_HOST)}</span><span class="mpscan">SCAN · ${SITE_HOST}</span>
+          <dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl><p>© 2026 BNAGENT · AI Agent mint on BNB Chain</p></div></div>
+      </div></div>
+      <div class="mpctl"><button type="button" class="chip" id="mpPause">${T("Pause", "暂停")}</button><button type="button" class="chip" id="mpFlip">${T("Flip", "翻面")}</button></div>`;
+  }
+  const SPIN = { angle: -20, vel: 0.03, auto: 0.03, paused: false, drag: false, lastX: 0, lastT: 0, tilt: 0, tTilt: 0, startY: 0, raf: 0 };
+  function spinStart() {
+    cancelAnimationFrame(SPIN.raf);
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { SPIN.auto = 0; SPIN.angle = 0; }
+    let t = performance.now();
+    const f = (now) => {
+      const dt = Math.min(now - t, 48); t = now;
+      if (!SPIN.drag) { const g = SPIN.paused ? 0 : SPIN.auto; SPIN.vel += (g - SPIN.vel) * Math.min(1, 0.0025 * dt); SPIN.angle += SPIN.vel * dt; }
+      SPIN.tilt += (SPIN.tTilt - SPIN.tilt) * Math.min(1, 0.008 * dt);
+      const el = $("mpCard"); if (!el) return;
+      el.style.transform = `rotateX(${SPIN.tilt}deg) rotateY(${SPIN.angle}deg)`;
+      SPIN.raf = requestAnimationFrame(f);
+    };
+    SPIN.raf = requestAnimationFrame(f);
+    const box = $("mp3d");
+    box.onpointerdown = (e) => { Object.assign(SPIN, { drag: true, lastX: e.clientX, startY: e.clientY, lastT: performance.now(), vel: 0 }); box.setPointerCapture(e.pointerId); };
+    box.onpointermove = (e) => { if (!SPIN.drag) return; const now = performance.now(), dx = e.clientX - SPIN.lastX; SPIN.angle += 0.5 * dx; SPIN.vel = (0.5 * dx) / Math.max(now - SPIN.lastT, 1); SPIN.tTilt = Math.max(-14, Math.min(14, (SPIN.startY - e.clientY) * 0.12)); SPIN.lastX = e.clientX; SPIN.lastT = now; };
+    box.onpointerup = box.onpointercancel = () => { SPIN.drag = false; SPIN.tTilt = 0; };
+    box.onkeydown = (e) => { if (e.key === "ArrowLeft") SPIN.angle -= 30; if (e.key === "ArrowRight") SPIN.angle += 30; };
+    $("mpPause").onclick = () => { SPIN.paused = !SPIN.paused; $("mpPause").textContent = SPIN.paused ? T("Resume", "继续") : T("Pause", "暂停"); };
+    $("mpFlip").onclick = () => (SPIN.angle += 180);
+  }
+  function renderPassModal() {
+    const c = passCard(), preview = !W.handle, res = PASS.result, txt = postText(PASS.lang === "cn", c);
+    const nx = BORDERS[c.level + 1], cur = BORDERS[c.level];
+    const span = nx ? nx.min - cur.min : 1, prog = nx ? c.points - cur.min : 1;
+    const title = res ? T("Mint successful", "铸造成功") : T("Your Mint Pass", "你的 Mint Pass");
+    const sub = res ? T("Your BNAGENT is in your wallet. See the exact amount on BscScan.", "你的 BNAGENT 已到账，准确数量见 BscScan。") : preview ? T("Your Agent ID, X and border show here once you connect.", "连接后这里会显示你的 Agent ID、X 和边框。") : T("Share it on X with your invite link.", "带上你的邀请链接分享到 X。");
+    $("passBody").innerHTML = `<button type="button" class="ivx pclose" id="passClose" aria-label="Close">✕</button>
+      <div class="phd"><h2 id="pass-dialog-title">${title}</h2><p>${sub}</p></div>
+      ${cardHtml(c)}
+      <div class="bprog"><div class="bph"><span>${T(`${cur.name} border`, `${cur.cn}边框`)}</span><span class="mono">${c.points} ${c.points === 1 ? "point" : "points"}</span></div>
+        <div class="bpbar" role="progressbar" aria-label="Progress to next border" aria-valuemin="0" aria-valuemax="${span}" aria-valuenow="${Math.min(prog, span)}"><i style="width:${Math.min(100, (prog / span) * 100)}%"></i></div>
+        <p>${nx ? T(`${nx.min - c.points} more to ${nx.name}. Earn 1 point for each day board (Invites, Mints, Holders) where you finish in the Top 100.`, `再得 ${nx.min - c.points} 分升到${nx.cn}。每个 UTC 日在邀请、铸造、持有日榜进入前 100，各得 1 分。`) : T("Top border reached. This is the King card.", "已达最高边框，这是王者卡。")}</p></div>
+      ${preview ? "" : `<div class="pshare"><div class="psh"><span>${T("Post text", "帖子文案")}</span><div class="tabs boxed" role="radiogroup" aria-label="Language"><button type="button" role="radio" aria-checked="${PASS.lang === "cn"}" class="${PASS.lang === "cn" ? "on" : ""}" data-pl="cn">中文</button><button type="button" role="radio" aria-checked="${PASS.lang === "en"}" class="${PASS.lang === "en" ? "on" : ""}" data-pl="en">EN</button></div></div>
+        <pre class="ptext" id="passText">${esc(txt)}</pre>
+        <div class="pgrid"><button type="button" class="pbtn" id="passPost">${T("Post on X", "发到 X")}</button><button type="button" class="cbtn" id="passCopy">${PASS.copied ? T("Copied", "已复制") : T("Copy text", "复制文案")}</button><button type="button" class="cbtn" id="passSave">${T("Save image", "保存图片")}</button></div>
+        <p class="ivp">${T("Attach the saved image to your post. Then paste the post link under Invite & tasks to bind your X and claim the post task.", "把保存的图片附在帖子里，然后到「邀请与任务」粘贴帖子链接，绑定你的 X 并领取发帖任务。")}</p>
+        ${res ? `<a class="ivp mono ctr" href="${C.explorer}/tx/${esc(res.txHash)}" target="_blank" rel="noreferrer">${T("View transaction on BscScan", "在 BscScan 查看交易")}</a>` : ""}</div>`}`;
+    $("passClose").onclick = closePass;
+    $("passBody").querySelectorAll("[data-pl]").forEach((b) => (b.onclick = () => { PASS.lang = b.dataset.pl; renderPassModal(); }));
+    if ($("passPost")) $("passPost").onclick = () => window.open(`https://x.com/intent/post?text=${encodeURIComponent(txt)}`, "_blank", "noopener,noreferrer");
+    if ($("passCopy")) $("passCopy").onclick = async () => { await copy(txt); PASS.copied = true; renderPassModal(); setTimeout(() => { PASS.copied = false; if ($("passModal").open) renderPassModal(); }, 1500); };
+    if ($("passSave")) $("passSave").onclick = () => savePassImage(c);
+    spinStart();
+  }
+  // Save image: draws the back of the card (border pill, logo, QR, details) on a canvas, 3× scale, PNG download
+  async function savePassImage(c) {
+    const W0 = 600, H0 = 1000, k = 3, cv = document.createElement("canvas"); cv.width = W0 * k; cv.height = H0 * k;
+    const g = cv.getContext("2d"); g.scale(k, k);
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    g.fillStyle = "#0b0b0b"; rr(0, 0, W0, H0, 36); g.fill();
+    g.strokeStyle = c.b.color; g.globalAlpha = 0.5; g.lineWidth = 3; rr(18, 18, W0 - 36, H0 - 36, 24); g.stroke(); g.globalAlpha = 1;
+    g.font = "900 22px Arial"; const pill = `${c.b.name.toUpperCase()} BORDER`, pw = g.measureText(pill).width + 44;
+    g.fillStyle = c.b.color; rr((W0 - pw) / 2, 56, pw, 42, 21); g.fill(); g.fillStyle = "#0b0b0b"; g.textAlign = "center"; g.fillText(pill, W0 / 2, 85);
+    const img = new Image(); img.src = "assets/bnagent-lockup-v3.png";
+    await new Promise((r) => { img.onload = r; img.onerror = r; });
+    if (img.naturalWidth) { const w = 420, h = (img.naturalHeight / img.naturalWidth) * w; g.drawImage(img, (W0 - w) / 2, 140, w, h); }
+    if (typeof window.qrcode === "function") { const q = window.qrcode(0, "M"); q.addData("https://" + SITE_HOST); q.make(); const n = q.getModuleCount(), size = 200, cell = size / n, x0 = (W0 - size) / 2, y0 = 300; g.fillStyle = "#fff"; rr(x0 - 14, y0 - 14, size + 28, size + 28, 14); g.fill(); g.fillStyle = "#0b0b0b"; for (let r = 0; r < n; r++) for (let cc = 0; cc < n; cc++) if (q.isDark(r, cc)) g.fillRect(x0 + cc * cell, y0 + r * cell, cell + 0.5, cell + 0.5); }
+    g.fillStyle = c.b.color; g.font = "700 20px Arial"; g.fillText(`SCAN · ${SITE_HOST.toUpperCase()}`, W0 / 2, 560);
+    const rows = [["AGENT", `${c.handle}.ai`], ["X", c.x ? "@" + c.x : "—"], ["MINTED", `${c.minted} shares`], ["BORDER", `0${c.level + 1} / 07 ${c.b.name}`], ["DATE", `${c.date} UTC`], ["NETWORK", "BNB Chain"]];
+    g.textAlign = "left";
+    rows.forEach(([kk, v], i) => { const x = i % 2 ? 320 : 60, y = 620 + Math.floor(i / 2) * 92; g.strokeStyle = "#ffffff26"; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 220, y); g.stroke(); g.fillStyle = "#ffffff80"; g.font = "600 15px Arial"; g.fillText(kk, x, y + 26); g.fillStyle = "#fff"; g.font = "700 24px Arial"; g.fillText(v.length > 16 ? v.slice(0, 15) + "…" : v, x, y + 58); });
+    g.textAlign = "center"; g.fillStyle = "#ffffff73"; g.font = "600 14px Arial"; g.fillText("© 2026 BNAGENT · AI AGENT MINT ON BNB CHAIN", W0 / 2, 950);
+    const a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = `BNAGENT-MintPass-${c.handle}.png`; a.click();
+  }
+  function openPass(result) { PASS.result = result || null; renderPassModal(); const d = $("passModal"); if (!d.open) { if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", ""); } }
+  function closePass() { cancelAnimationFrame(SPIN.raf); const d = $("passModal"); if (d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); } }
+  $("passBtn").onclick = () => openPass(null);
+  $("passModal").addEventListener("click", (e) => { if (e.target === $("passModal")) closePass(); });
+  $("passModal").addEventListener("close", () => cancelAnimationFrame(SPIN.raf));
+
+  // ---------------------------------------------------------------- Bind X + Border season (sections of the Invite & tasks dialog, as on jager.live)
+  // Wallet proof: Agentic Wallet (QR) sessions send {kind:"agent", clientId, sessionId}; browser wallets personal_sign the message below.
+  async function proveWallet(action, handle) {
+    if (W.rdns === AGENTIC && awStore.sid()) return { kind: "agent", clientId: awStore.cid(), sessionId: awStore.sid() };
+    const time = new Date().toISOString();
+    const msg = `${SITE_HOST}: ${action} X for ${handle}.ai\nWallet: ${W.account.toLowerCase()}\nTime: ${time}`;
+    const hx = "0x" + [...new TextEncoder().encode(msg)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return { kind: "sig", time, signature: await W.provider.request({ method: "personal_sign", params: [hx, W.account] }) };
+  }
+  async function xbind(action) {
+    const h = W.handle; if (!h || !W.account) return;
+    if (action === "unbind" && !window.confirm(T(`Unbind @${PASS.xb && PASS.xb.x}? You can bind an X account again after 7 days.`, `解绑 @${PASS.xb && PASS.xb.x}？7 天后才能再次绑定 X 账号。`))) return;
+    PASS.xbBusy = true; PASS.xbErr = ""; renderInvite();
+    try {
+      const proof = await proveWallet(action, h);
+      const r = await fetch(API + "/api/x-bind", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, address: W.account, tweetUrl: PASS.xbUrl, proof }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || T("Request failed", "请求失败"));
+      PASS.xbUrl = ""; await loadPass();
+    } catch (e) { PASS.xbErr = errText(e); }
+    PASS.xbBusy = false; if ($("inviteModal").open) renderInvite();
+  }
+  const ICON_X2 = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
+  const ICON_MEDAL = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>';
+  function bindXHtml() {
+    const xb = PASS.xb, h = W.handle;
+    let body;
+    if (!W.account) body = `<button type="button" class="pbtn" id="xbConnect">${T("Connect to bind", "连接后绑定")}</button>`;
+    else if (!h) body = "";
+    else if (xb && xb.x) body = `<button type="button" class="cbtn" id="xbUnbind"${PASS.xbBusy ? " disabled" : ""}>${PASS.xbBusy ? "… " : ""}${T("Unbind", "解绑")} @${esc(xb.x)}</button>`;
+    else body = `<div class="xbbox"><p class="ivp">${T(`Post your Mint Pass from the X account you want to bind (the post must include ${esc(h)}.ai), then paste the post link.`, `用你要绑定的 X 账号发布你的 Mint Pass（帖子须包含 ${esc(h)}.ai），然后粘贴帖子链接。`)}${xb && xb.cooldownMs ? T(` You can bind again in ${Math.ceil(xb.cooldownMs / 864e5)} day(s).`, ` ${Math.ceil(xb.cooldownMs / 864e5)} 天后可再次绑定。`) : ""}</p>
+        <div class="xbrow"><input type="url" inputmode="url" id="xbUrl" value="${esc(PASS.xbUrl)}" placeholder="https://x.com/…/status/…" aria-label="Mint Pass post link"><button type="button" class="pbtn" id="xbBind"${PASS.xbBusy || !PASS.xbUrl.trim() || (xb && xb.cooldownMs) ? " disabled" : ""}>${PASS.xbBusy ? "… " : ""}${T("Bind", "绑定")}</button></div></div>`;
+    return `<section class="ivsec" aria-labelledby="xbind-heading"><div class="ivh"><h3 id="xbind-heading">${ICON_X2}${T("Bind X", "绑定 X")}</h3>${xb && xb.x ? `<span class="cnt hl">@${esc(xb.x)}</span>` : ""}</div>
+      <p class="ivp">${T("Shows your @X next to your .ai on the leaderboards and your Mint Pass. One X per Agent ID. After unbinding, wait 7 days to bind again. No quota reward.", "在排行榜和 Mint Pass 上，于你的 .ai 旁显示 @X。每个 Agent ID 只能绑定一个 X。解绑后需等待 7 天才能再次绑定。不奖励额度。")}</p>
+      ${body}${PASS.xbErr ? `<span class="terr">${esc(PASS.xbErr)}</span>` : ""}</section>`;
+  }
+  function seasonHtml() {
+    const pd = PASS.data, nx = pd ? BORDERS[pd.level + 1] : null;
+    return `<section class="ivsec" aria-labelledby="border-heading"><div class="ivh"><h3 id="border-heading">${ICON_MEDAL}${T("Border season", "边框赛季")}</h3>${pd ? `<span class="cnt">${pd.points} pts${nx ? T(` · ${nx.min - pd.points} to ${nx.name}`, ` · 距${nx.cn}还差 ${nx.min - pd.points}`) : ""}</span>` : ""}</div>
+      <p class="ivp">${T("Each UTC day, landing in the Top 100 of the Invites, Mints or Holders day board earns +1 point (up to 3 a day). Points never go down and borders only rise. Your border shows on your Mint Pass and on every board.", "每个 UTC 日，进入邀请、铸造或持有日榜前 100 各得 +1 分（每天最多 3 分）。积分只增不减，边框只升不降。你的边框会显示在 Mint Pass 和所有榜单上。")}</p>
+      <ul class="borders">${BORDERS.map((b, i) => `<li class="${pd && pd.level === i ? "on" : ""}">${diamond(i)}<span>${lang === "zh" ? b.cn : b.name}</span><span class="mut">${b.min}</span></li>`).join("")}</ul></section>`;
+  }
+  function wireXb() {
+    if ($("xbConnect")) $("xbConnect").onclick = () => { closeInvite(); openModal(); };
+    if ($("xbUnbind")) $("xbUnbind").onclick = () => xbind("unbind");
+    if ($("xbBind")) $("xbBind").onclick = () => xbind("bind");
+    if ($("xbUrl")) $("xbUrl").oninput = (e) => { PASS.xbUrl = e.target.value; const b = $("xbBind"); if (b) b.disabled = PASS.xbBusy || !PASS.xbUrl.trim() || !!(PASS.xb && PASS.xb.cooldownMs); };
   }
 
   // wake the API (Render free instance sleeps after ~15 min idle) as early as possible; fire-and-forget
