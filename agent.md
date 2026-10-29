@@ -21,10 +21,10 @@ overview() -> (minted, paid, paused, open, nextPriceCents, usdtReserve, tokenRes
 costOf(uint256 shares)   -> USDT cost (18 decimals)    0xfd326592
 bnbQuote(uint256 shares) -> BNB cost (wei)             0x68bce8cd
 totalMinted() · soldShares() · BURNED_SHARES() · paused() · opened() · reserves() · floorValue() · mintableNow() 0x8af51955
-valve() -> (startTime, deadline, closed, heldUsdt, withdrawable)   0x3a81955f
+valve() -> (startTime, deadline, withdrawals, heldUsdt, withdrawable, withdrawnUsdt, parkedUsdt, parkedTokens)   0x3a81955f
 ```
 `totalMinted` starts at 1,100: shares #1–#1,100 are burned at deploy (never sold, no tokens, no USDT); the first sold share is #1,101.
-Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out or after the 30-day withdrawal).
+Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out). The 30-day withdrawal does NOT stop minting.
 
 ## 3. Mint
 
@@ -35,7 +35,7 @@ Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out or afte
 
 - 1 to 10 shares per transaction; referrer = the inviter's wallet (resolve `<handle>.ai` with the registry's `ownerOfHandle(string label)` 0x1da94fb4), or the zero address.
 - Inviting yourself does nothing. The inviter gets +1 quota on your first paid mint.
-- Add 20% to the gas estimate. Simulate with eth_call first; revert reasons: `Paused`, `BadShares`, `SoldOut`, `NoAgent`, `Quota`, `OverMaxCost`, `BadPayment`, `StalePrice`, `SwapShort`, `MintClosed` (minting ended under the 30-day rule).
+- Add 20% to the gas estimate. Simulate with eth_call first; revert reasons: `Paused`, `BadShares`, `SoldOut`, `NoAgent`, `Quota`, `OverMaxCost`, `BadPayment`, `StalePrice`, `SwapShort`.
 
 ## 4. Social tasks (+1 share each)
 
@@ -54,9 +54,11 @@ signature (domain name `BnagentMint`, version `1`, chainId 56, verifyingContract
 ## 6. Funds and liquidity (same model as $JAGENT)
 
 - Every payment: 20% to the project treasury `0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE`, 80% stays in the mint contract (BNB is swapped to USDT first; any surplus over the table price goes to the treasury).
-- Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The tx that reaches share 10,000 opens the official PancakeSwap BNAGENT/USDT pool with everything parked (8,900 paid shares → 7,120 USDT + 356,000,000,000 BNAGENT); LP to the dead address. After that 80% of each payment is added to the pool, LP burned.
+- Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The tx that reaches share 10,000 opens the official PancakeSwap BNAGENT/USDT pool with everything parked (8,900 paid shares → 7,120 USDT + 356,000,000,000 BNAGENT; less if the team withdrew under the 30-day rule, see §7); LP to the dead address. After that 80% of each payment is added to the pool, LP burned.
 
 ## 7. 30-day rule
 
-- The clock starts at the first unpause. If share 10,000 is not reached within 30 days, only the treasury address can call `withdrawUnfilled()` (`0xa65c6326`): all USDT held by the mint contract goes to the treasury and minting closes for good. Minted BNAGENT stays non-transferable; nothing is refunded.
+- The clock starts at the first unpause. If share 10,000 is not reached within 30 days, only the treasury address can call `withdrawUnfilled()` (`0xa65c6326`), **as many times as it wants, and minting continues**. Each call sends all USDT parked in the mint contract (the 80% meant for the pool) to the treasury and sends the BNAGENT parked for the pool (40M per share) to the dead address.
+- **A pool that opens later is backed only by the USDT parked after the last withdrawal** (example: withdraw at share 8,000, open at 10,000 → 1,600 USDT instead of 7,120). Minted BNAGENT stays non-transferable until the pool opens; nothing is refunded.
+- Before minting, read `valve()`: if `withdrawable` is true or `withdrawals > 0`, tell your owner that the 80% of their payment may be withdrawn by the team instead of becoming liquidity.
 - Never callable before the deadline or once the pool has opened; still works after `renounce()`. There is no other withdrawal path.
