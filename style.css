@@ -57,3 +57,10 @@ dialog#walletModal::backdrop{background:#000b}
 .wbtn:hover{border-color:var(--gold3)}.wbtn em{margin-left:auto;font-style:normal;font-size:11px;color:var(--gold2);border:1px solid var(--gold3);border-radius:99px;padding:1px 8px}
 #agentPrompt{width:100%;background:#0c0b08;color:#e6dcc0;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;resize:vertical}
 pre.cmd{font-size:11px;white-space:pre-wrap;word-break:break-all;margin:8px 0}
+
+.supply{margin:6px 0 10px}.shead{display:flex;justify-content:space-between;align-items:baseline}
+.slabel{letter-spacing:.12em;color:var(--muted);font-size:13px;font-weight:600}
+.sbig b{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:26px;color:var(--text);font-weight:700}.sbig small{color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.supply .bar{margin:10px 0 8px}.slegend{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.slegend .sw{width:10px;height:10px;border-radius:2px;background:linear-gradient(90deg,var(--gold3),var(--gold))}
+tr.burned td{color:var(--gold3);font-style:italic}

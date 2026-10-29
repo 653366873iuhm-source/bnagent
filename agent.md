@@ -20,9 +20,11 @@ Quota = 10 + invites + social tasks.
 overview() -> (minted, paid, paused, open, nextPriceCents, usdtReserve, tokenReserve, supply, circulating, floorLine, mintableNow)  0x3a2056f1
 costOf(uint256 shares)   -> USDT cost (18 decimals)    0xfd326592
 bnbQuote(uint256 shares) -> BNB cost (wei)             0x68bce8cd
-totalMinted() · paused() · opened() · reserves() · floorValue() · mintableNow() 0x8af51955
+totalMinted() · soldShares() · BURNED_SHARES() · paused() · opened() · reserves() · floorValue() · mintableNow() 0x8af51955
+valve() -> (startTime, deadline, closed, heldUsdt, withdrawable)   0x3a81955f
 ```
-Minting needs `paused == false` and `mintableNow() > 0` (it is 0 after share 10,000 until `openTrading()`).
+`totalMinted` starts at 1,100: shares #1–#1,100 are burned at deploy (never sold, no tokens, no USDT); the first sold share is #1,101.
+Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out or after the 30-day withdrawal).
 
 ## 3. Mint
 
@@ -33,7 +35,7 @@ Minting needs `paused == false` and `mintableNow() > 0` (it is 0 after share 10,
 
 - 1 to 10 shares per transaction; referrer = the inviter's wallet (resolve `<handle>.ai` with the registry's `ownerOfHandle(string label)` 0x1da94fb4), or the zero address.
 - Inviting yourself does nothing. The inviter gets +1 quota on your first paid mint.
-- Add 20% to the gas estimate. Simulate with eth_call first; revert reasons: `Paused`, `BadShares`, `SoldOut`, `NoAgent`, `Quota`, `OverMaxCost`, `BadPayment`, `StalePrice`, `SwapShort`, `NotOpen`.
+- Add 20% to the gas estimate. Simulate with eth_call first; revert reasons: `Paused`, `BadShares`, `SoldOut`, `NoAgent`, `Quota`, `OverMaxCost`, `BadPayment`, `StalePrice`, `SwapShort`, `MintClosed` (minting ended under the 30-day rule).
 
 ## 4. Social tasks (+1 share each)
 
@@ -45,11 +47,16 @@ signature (domain name `BnagentMint`, version `1`, chainId 56, verifyingContract
 ## 5. Safety rules
 
 - Never send BNB or USDT by plain transfer to the mint or token contract.
-- BNAGENT cannot be transferred until the treasury calls `openTrading()` (only after share 10,000 and once the team has added liquidity to the official BNAGENT/USDT pair).
-- Shares 1–10,000 give 50,000,000 BNAGENT each; after trading opens, pool price −1%.
+- BNAGENT cannot be transferred until the pool opens (automatically, in the transaction that reaches share 10,000).
+- Shares 1,101–10,000 give 50,000,000 BNAGENT each; after the pool opens, pool price −1%.
 - Taxes: buy 1%, sell 1% burn + 1% treasury, wallet transfers 0%.
 
-## 6. Funds and liquidity
+## 6. Funds and liquidity (same model as $JAGENT)
 
-- 100% of each mint payment goes to the project treasury `0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE` in the same transaction, in USDT (BNB is swapped first). The mint contract keeps nothing.
-- With share 10,000 the mint contract mints 400,000,000,000 BNAGENT to the treasury. The team adds the PancakeSwap liquidity manually; the LP tokens stay with the treasury (not locked, not burned).
+- Every payment: 20% to the project treasury `0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE`, 80% stays in the mint contract (BNB is swapped to USDT first; any surplus over the table price goes to the treasury).
+- Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The tx that reaches share 10,000 opens the official PancakeSwap BNAGENT/USDT pool with everything parked (8,900 paid shares → 7,120 USDT + 356,000,000,000 BNAGENT); LP to the dead address. After that 80% of each payment is added to the pool, LP burned.
+
+## 7. 30-day rule
+
+- The clock starts at the first unpause. If share 10,000 is not reached within 30 days, only the treasury address can call `withdrawUnfilled()` (`0xa65c6326`): all USDT held by the mint contract goes to the treasury and minting closes for good. Minted BNAGENT stays non-transferable; nothing is refunded.
+- Never callable before the deadline or once the pool has opened; still works after `renounce()`. There is no other withdrawal path.
