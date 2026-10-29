@@ -1,3 +1,17 @@
+# STATUS (updated 2026-10-30 05:20 CST)
+
+## v2 LIVE DEPLOYMENT (current) — minting still PAUSED until the user confirms setPaused(false)
+- 100,000,000 shares (#1–#1,100 burned at deploy, sale from #1,101; 99,998,900 sellable), 5,131 tiers 1U → 79.74U, cap 10,000T.
+- Deploy tx 0x89fc3e2ad568a0d080849914e1d2fd2d402c6250ceaa2e2ed0cc37186c268ac6 (block 130,542,132, CREATE2 salt keccak256("BNAGENT.mint.v2")).
+- Mint 0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0 · Token 0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB · Pair 0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f.
+- Verified on Sourcify (match) and BscScan (getsourcecode OK) for mint and token.
+- Render API ALLOW_TO = new mint; server DEPLOY_BLOCK default 130542132.
+- Tests: fork 26/26, site 79/79, server 39/39.
+
+## v1 (RETIRED) — paused 2026-10-30 05:03 CST by setPaused(true) tx 0x0201f9d67f8636edf7f93c414c13b682cc83657ee418a8b05df8dd379dd136bf
+- Mint 0xBd57F860B043924f4F37d35AC16c3aab37068e9a, token 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c, pair 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc; totalMinted 1,101 (1 share sold). Its 30-day valve opens 2026-11-29 02:34:08 CST (treasury-only withdrawUnfilled).
+
+---
 # BNAGENT — STATUS (2026-10-30 ~05:00 CST)
 
 ## DEPLOYED on BSC mainnet — MINTING LIVE (setPaused(false) sent; totalMinted 1,101 at 03:30 CST)

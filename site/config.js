@@ -1,11 +1,11 @@
-// BNAGENT site configuration. Deployed on BSC mainnet 2026-10-30 (tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b).
-// Minting is LIVE (setPaused(false) sent); the site reads paused/supply live from the mint contract.
+// BNAGENT site configuration. v2 deployed on BSC mainnet 2026-10-30 (tx 0x89fc3e2ad568a0d080849914e1d2fd2d402c6250ceaa2e2ed0cc37186c268ac6, block 130,542,132).
+// The site reads paused/supply live from the mint contract. (v1 mint 0xBd57…9e68a is paused and retired.)
 window.BNAGENT_CONFIG = {
   chainId: 56,
   rpc: ["https://bsc-dataseed.bnbchain.org", "https://bsc-rpc.publicnode.com", "https://bsc-dataseed1.binance.org"],
-  mint: "0xBd57F860B043924f4F37d35AC16c3aab37068e9a",   // BnagentMint
-  token: "0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c",  // BnagentToken
-  pair: "0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc",   // PancakeSwap BNAGENT/USDT pair (mint.pair())
+  mint: "0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0",   // BnagentMint
+  token: "0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB",  // BnagentToken
+  pair: "0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f",   // PancakeSwap BNAGENT/USDT pair (mint.pair())
   usdt: "0x55d398326f99059fF775485246999027B3197955",
   agentRegistry: "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
   treasury: "0x866396d4aee9467b67194431bdbDdE8E8044d8AE",

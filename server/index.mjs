@@ -102,7 +102,7 @@ async function proxy(payload) {
 // Click-based like jager.live: the site opens the X follow / post link first, then the user claims. No X API.
 // account = keccak256(lowercased X handle without @); deadline = now + 30 min. The contract binds each X account to the first
 // Agent ID that uses it and allows each task once per Agent ID.
-const MINT = (process.env.MINT || "0xBd57F860B043924f4F37d35AC16c3aab37068e9a").toLowerCase();
+const MINT = (process.env.MINT || "0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0").toLowerCase();
 const CHAIN_ID = 56n;
 const RPCS = (process.env.RPC || "https://bsc-dataseed.bnbchain.org,https://bsc-rpc.publicnode.com,https://bsc-dataseed1.binance.org").split(",");
 const TASKS = { FOLLOW: "FOLLOW", TWEET: "TWEET", POST: "TWEET" }; // TELEGRAM exists on-chain but is not offered
@@ -196,10 +196,10 @@ async function signSocial(b, ip) {
 // Boards: invites (QuotaGranted with reason INVITE, by inviter), mints (Minted shares, by minter), holders (live BNAGENT balance).
 // Day = current UTC day, week = UTC week from Monday. Scans mint + token logs from the deploy block in 5,000-block chunks on
 // public RPCs that allow eth_getLogs, keeps everything in memory (rebuilt after a restart; `syncing` is true while catching up).
-const TOKEN = (process.env.TOKEN || "0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c").toLowerCase();
+const TOKEN = (process.env.TOKEN || "0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB").toLowerCase();
 const REGISTRAR = "0x60b9262456de011f7d15a54cdd8c48baaa8b022f";
-const PAIR = (process.env.PAIR || "0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc").toLowerCase();
-const DEPLOY_BLOCK = Number(process.env.DEPLOY_BLOCK || 130514568);
+const PAIR = (process.env.PAIR || "0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f").toLowerCase();
+const DEPLOY_BLOCK = Number(process.env.DEPLOY_BLOCK || 130542132);
 const LOG_RPCS = (process.env.LOG_RPC || "https://rpc-bsc.48.club,https://bsc-mainnet.nodereal.io/v1/64a9df0874fb4a93b9d0a3849de012d3,https://bsc.rpc.blxrbdn.com").split(",").map((s) => s.trim());
 const T_MINTED = hex(kec("Minted(address,uint256,uint256,uint256,uint256)"));
 const T_QUOTA = hex(kec("QuotaGranted(address,uint256,uint256,bytes32)"));
@@ -311,9 +311,9 @@ if (process.env.NO_LISTEN !== "1") setTimeout(scanLoop, 500);
 
 // ---------------------------------------------------------------- public read API (same shape as jager.live /api/stats and /api/verify)
 const USDT_ADDR = "0x55d398326f99059fF775485246999027B3197955";
-const MINT_CS = process.env.MINT_CHECKSUM || "0xBd57F860B043924f4F37d35AC16c3aab37068e9a";
-const TOKEN_CS = process.env.TOKEN_CHECKSUM || "0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c";
-const PAIR_CS = process.env.PAIR_CHECKSUM || "0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc";
+const MINT_CS = process.env.MINT_CHECKSUM || "0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0";
+const TOKEN_CS = process.env.TOKEN_CHECKSUM || "0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB";
+const PAIR_CS = process.env.PAIR_CHECKSUM || "0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f";
 const SEL2 = { overview: sel("overview()"), costOf: sel("costOf(uint256)"), bnbQuote: sel("bnbQuote(uint256)"), handleOf: sel("handleOf(address)"), ownerOfHandle: sel("ownerOfHandle(string)") };
 const words = (h) => (String(h || "").replace(/^0x/, "").match(/.{64}/g) || []).map((x) => BigInt("0x" + x));
 export function units(v, dec = 18) { // bigint -> decimal string without trailing zeros

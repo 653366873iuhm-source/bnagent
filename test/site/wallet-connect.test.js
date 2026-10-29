@@ -9,7 +9,7 @@ const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const srv = http.createServer((q, r) => { let f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); if (f.endsWith('/')) f += 'index.html'; fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); }); });
 const ADDR = '0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE'; // test fixture: a wallet holding allin168.ai on BSC (not the treasury; treasury = 0x8663…d8AE iuhm.ai)
 const TREASURY = '0x866396d4aee9467b67194431bdbDdE8E8044d8AE'; // iuhm.ai Agentic Wallet
-const MINT = '0xBd57F860B043924f4F37d35AC16c3aab37068e9a';
+const MINT = '0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0';
 const mock = (addr) => `(() => {
   const calls = []; window.__calls = calls; let chain = '0x1'; let added = false; const ls = {};
   const p = { isMetaMask: true, request: async ({ method, params }) => { calls.push(method);
