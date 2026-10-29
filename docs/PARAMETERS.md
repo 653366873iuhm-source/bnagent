@@ -1,3 +1,7 @@
+> **v2 (current, 2026-10-30):** 100,000,000 shares (#1–#1,100 burned, sale from #1,101; 99,998,900 sellable, 4,223,766,600 USDT at table prices), 5,131 tiers 1U → 79.74U (Jager table continued by its last rule: 100,001–1,000,000 +0.02 per 10,000; then +0.015 per 20,000, rounded to cents), cap 10,000T, FLOOR_LINE 7,616,686,731 / LINE_DENOM 4,223,766,600, POOL_TOKEN_FLOOR 11,666,666,667. Every other rule unchanged.
+> Mint 0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0 · Token 0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB · Pair 0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f · deploy tx 0x89fc3e2a…8ac6 · unpaused tx 0x3384c6d5…0943 (valve deadline 2026-11-29 05:19:06 CST).
+> The figures below describe **v1** (30,000 shares, mint 0xBd57…9e68a, paused 2026-10-30 05:03 CST) and are kept for the record.
+
 # BNAGENT parameters and scaling math
 
 **Deployed** on BSC mainnet 2026-10-30 (tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b): mint 0xBd57F860B043924f4F37d35AC16c3aab37068e9a, token 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c, pair 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc; treasury 0x866396d4aee9467b67194431bdbDdE8E8044d8AE (iuhm.ai). Minting starts paused.
