@@ -1,51 +1,21 @@
-# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130505598, run 2026-10-30 ~00:45 CST)
-# 25 / 25 PASS (run in two batches because of the 120 s sandbox limit)
-No files changed, compilation skipped
-Ran 24 tests for test/BnagentFork.t.sol:BnagentForkTest
-[PASS] test_BnbMintWithRefund() (gas: 470924)
-[PASS] test_BurnedShares() (gas: 348603)
-[PASS] test_GriefEmptyPairDonateAndSync() (gas: 120259260)
-[PASS] test_GriefEmptyPairDonateNoSyncAndSkim() (gas: 119913062)
-[PASS] test_HardCapEnforcedInToken() (gas: 16225)
-[PASS] test_InviteAndSelfInvite() (gas: 657773)
-[PASS] test_JagerSelectors() (gas: 6294)
-[PASS] test_MintRules() (gas: 584144)
-[PASS] test_OpenInsideCrossingTx() (gas: 119973272)
-[PASS] test_PausedAtDeployAndAdmin() (gas: 295337)
-[PASS] test_PlainTransfersDoNotMint() (gas: 15462)
-[PASS] test_PlannedDeploymentAddress() (gas: 8561561)
-Logs:
-  planned mint: 0x2B1Ec8a99BDd66ba6192b5b1755e8B346CcE9705
-  planned token: 0x76aE68D5cdD675dC81593923BFb13d6967E4fbdc
-  planned pair: 0x2fD791295f5F53F095Cb2102B0496e63E7e0514d
-[PASS] test_PriceTable() (gas: 82642046)
-[PASS] test_RealAgentIdsResolve() (gas: 32232)
-[PASS] test_RenounceBeforeOpen() (gas: 119980849)
-[PASS] test_SocialTasks() (gas: 276238)
-[PASS] test_TransfersClosedBeforeOpen() (gas: 287621)
-[PASS] test_ValveAfterDeadlineWithdrawsAndCloses() (gas: 605150)
-[PASS] test_ValveBeforeDeadlineReverts() (gas: 350766)
-[PASS] test_ValveClockStartsOnFirstUnpauseOnly() (gas: 32029)
-[PASS] test_ValveNeverAfterPoolOpens() (gas: 119768481)
-[PASS] test_ValveNeverStartedNeverWithdrawable() (gas: 8302838)
-[PASS] test_ValveNonTreasuryReverts() (gas: 352735)
-[PASS] test_ValveWorksAfterRenounce() (gas: 351292)
-Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 45.84s (74.83s CPU time)
-Ran 1 test suite in 45.85s (45.84s CPU time): 24 tests passed, 0 failed, 0 skipped (24 total tests)
-No files changed, compilation skipped
-Ran 1 test for test/BnagentFork.t.sol:BnagentForkTest
-[PASS] test_FullFlow() (gas: 566455060)
-Logs:
-  mint txs with floor burn, shares 10,001-20,000: 999
-  mint txs with floor burn, shares 20,001-30,000: 1000
-  final pool USDT (wei): 37065028949832863412519
-  final pool BNAGENT (tokens): 507564786142
-  final total supply (tokens): 2050230036851
-  final circulating (tokens): 1143331067728
-  dead balance (tokens): 399334182980
-  circ value at pool price (USDT): 83491
-  floor line (USDT): 83492
-  treasury USDT gained: 9260
-  treasury BNB gained (wei): 996371339355996
-Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 98.74s (97.68s CPU time)
-Ran 1 test suite in 98.74s (98.74s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130505598, run 2026-10-30 ~01:00-01:05 CST)
+# 26 / 26 PASS (three batches because of the 120 s sandbox limit) — repeatable-withdraw version (commit ae826ba)
+Batch 1 (--match-test test_Valve): 8 passed
+  test_ValveAfterDeadlineWithdrawsAndMintingContinues, test_ValveBeforeDeadlineReverts, test_ValveClockStartsOnFirstUnpauseOnly,
+  test_ValveNeverAfterPoolOpens, test_ValveNeverStartedNeverWithdrawable, test_ValveNonTreasuryReverts,
+  test_ValveWithdrawThenPoolOpensWithParkedSinceLastWithdraw (withdraw at 5,000, mint to 8,000, withdraw again, open at 10,000
+  -> pool 1,600 USDT + 80B, LP to dead, curve minting continues to 11,000), test_ValveWorksAfterRenounce
+Batch 2 (all others except FullFlow): 17 passed
+  planned mint: 0x4E826B92A676DEe5DE13E8Da7C2BD42b0172281b
+  planned token: 0x568bf080000E07A017AF1C886158a5b6ad366591
+  planned pair: 0x495369C007508D28a27Aaaeca18B3D8af8233037
+Batch 3 test_FullFlow: passed
+  floor-burn txs 10,001-20,000: 999 · 20,001-30,000: 1000 · final pool USDT 37,065.03 · pool BNAGENT 507,564,786,142
+  final supply 2,050,230,036,851 (< 4.44T) · circulating 1,143,331,067,728 · dead 399,334,182,980 · circ value 83,491 vs floor 83,492
+  treasury USDT +9,260 (20% of 46,300) · treasury BNB from taxes 0.000996
+
+# Site headless tests (test/site/wallet-connect.test.js, playwright-core + chromium headless shell): 30 / 30 PASS
+  local site/, https://bnagent.onrender.com/ and https://653366873iuhm-source.github.io/bnagent/ (2026-10-30 ~01:15 CST)
+  incl. Agentic Wallet QR connect (mocked proxy: QR + pairing code, CONNECTING->CONNECTED, CREATED, chain-56 wallet, preview->execute->txHash,
+  reload restore, disconnect), mobile deep link "Open in Binance App", header logo, og:image, SUPPLY bar, whitepaper withdraw text.
+  Live un-mocked check: both URLs get a real Binance sign-in QR through https://bnagent-api.onrender.com (scan/approve not exercised).

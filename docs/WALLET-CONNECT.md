@@ -26,9 +26,16 @@
   "check an Agentic Wallet address" box (Agent ID + quota from chain).
 - After connect: address, network (with Switch button), `.ai` Agent ID from the SPACE ID registry, BNB/USDT balances, and
   "合约未部署 / Contracts not deployed yet" while `config.js` has no mint address. Mint: eth_call simulation, gas × 1.2, Jager-style error messages.
-- Not replicated: the Agentic Wallet **QR login**. It needs a server that talks to Binance's Agentic Wallet API (session cookies, CORS); GitHub Pages
-  is static. To add it: a small backend (e.g. Cloudflare Worker / Render) implementing the same `login/query/confirm/wallets/preview/execute` proxy.
-  The upstream Binance endpoint is not visible in the client bundle (server-side), so it would have to be taken from Binance's Agentic Wallet docs.
+- **Agentic Wallet QR login (added 2026-10-30):** same design as Jager. `server/index.mjs` (Render web service `bnagent-api`) proxies
+  `POST /api/agent-wallet {action, clientId, sessionId, body}` to `https://www.binance.com/bapi/defi/v1/public/wallet-direct/agent-wallet/*`
+  (endpoints and headers taken from Binance's own `@binance/agentic-wallet` CLI 1.11.0): `login` (throw-away secp256k1 public key → `qrCodeUrl`,
+  `qrCodeId`, `expireAt`, pairing code), `confirm` (until `CONNECTED`; the `agentSessionId` comes back and is returned to the page as `sessionId`,
+  stored in sessionStorage), `query` (until `walletCreateStatus = CREATED`), `wallets` (mpc-wallet/list → chain-56 address), `preview`
+  (contract-call/preview, binanceChainId 56; `to` restricted to USDT + env `ALLOW_TO`), `execute` (polled every 3 s until a tx hash), `logout`.
+  CORS limited to bnagent.onrender.com and the GitHub Pages origin. The proxy stores nothing and cannot sign: every tx is approved in the Binance App.
+  Client: "Binance Wallet / Agent ID" button at the top of the chooser; QR (vendored qrcode-generator, MIT) on desktop, "Open in Binance App" link on
+  mobile; the session is wrapped as an EIP-1193 provider (`eth_requestAccounts`, `eth_chainId` = 0x38, `eth_sendTransaction` → preview/execute).
+- No WalletConnect projectId is needed: this is Binance's own Agentic Wallet login, not WalletConnect.
 - WalletConnect: Jager does not use it. Not added; it would need a WalletConnect Cloud projectId (none available).
 
 Test: `test/site/wallet-connect.test.js` (headless Chromium, mock EIP-6963 provider) — 16/16 pass locally and against the live site.
