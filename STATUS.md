@@ -16,7 +16,7 @@
 - Website `site/` (gold on black, script-made SVG logo, EN default / 中文, live mint card via JSON-RPC, price table with current-tier highlight,
   leaderboard placeholders, quota/social section, whitepaper EN+ZH, contract list from config, agent section, risk disclosure,
   llms.txt, agent.md). Contract addresses empty in site/config.js.
-- Local git repo (branch main, 1 commit) ready to push.
+- Local git repo (branch main + gh-pages = site/ subtree) ready to push.
 
 ## Blocked
 - GitHub: the Hark GitHub App cannot create repositories (POST /user/repos → 403 "Resource not accessible by integration";
