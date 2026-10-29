@@ -15,7 +15,7 @@ allowed differences below. The earlier manual-LP / `openTrading()` / 400B-to-tre
 | D | **4.44T cap + scaled constants**: `MAX_SUPPLY` 4.44T (both contracts); floor line `paid × 83,492 / 46,300` (46,300 = price of the 28,900 sellable shares; 83,492 = 46,300 × 50,000,000 / 27,727,060 → same ≈1.8033× as Jager); ceiling (view only) 100,191 / 46,300; `POOL_TOKEN_FLOOR` 116,666,667 (Jager ÷100, cap ratio) | constants |
 | E | **Name** BNAGENT (token name/symbol, EIP-712 domain "BnagentMint") | |
 | F | **Treasury** 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE (immutable) | constructor |
-| G | **30-day `withdrawUnfilled()`** (new): `mintStartTime` is set on the first `setPaused(false)` (or `renounce()`, which also unpauses); `mintDeadline()` = start + 30 days. After the deadline (strictly `>`), if share 10,000 has not been reached and minting is not closed, **only `msg.sender == treasury`** (immutable address; not gated by `renounced`, so it works after `renounce()`) can call it: all USDT held by the mint contract → treasury, `mintClosed = true`, `paused = true`, events `PausedSet(true)` + `UnfilledWithdrawn(treasury, amount, totalMinted)`. Never callable before the deadline, never once `opened()`, one-shot. After it `_check` reverts `MintClosed` forever (even if the treasury unpauses); tokens stay non-transferable (trading never enabled). No other withdraw path exists. Views `canWithdrawUnfilled()`, `valve()` | mint |
+| G | **30-day `withdrawUnfilled()`, REPEATABLE, minting continues** (user 2026-10-30 00:54 CST; replaces the earlier one-shot close): `mintStartTime` is set on the first `setPaused(false)` (or `renounce()`, which also unpauses); `mintDeadline()` = start + 30 days. After the deadline (strictly `>`), while the pool is not open, **only `msg.sender == treasury`** (immutable; not gated by `renounced`, so it works after `renounce()`) can call it, **any number of times**: all USDT held by the mint contract (the parked 80% + any stray USDT) → treasury, `pendingUsdt = 0`; the parked pool tokens (`pendingTokens`, 40M/share) are sent to DEAD and `pendingTokens = 0`; counters `unfilledWithdrawals`, `totalUnfilledWithdrawn`; event `UnfilledWithdrawn(treasury, usdt, tokensToDead, totalMinted)`. **Minting is NOT paused or closed.** A pool that opens later (share 10,000) is seeded only with what was parked after the last withdraw, at the same pre-pool price 50M/USDT. Dead tokens stay in `totalSupply`, so the 4.44T cap check stays conservative (at most 8,900 × 40M = 356B can go to dead this way). Never callable before the deadline or once `opened()`. `MintClosed`/`mintClosed` removed. No other withdraw path exists. Views `canWithdrawUnfilled()`, `valve()` → (start, deadline, withdrawals, heldUsdt, withdrawable, withdrawnUsdt, parkedUsdt, parkedTokens) |
 | H | **Own social signer**: dedicated EOA 0x66ECa9C28e4e4807e37C078b917e527DC85aC199 (Jager also uses a dedicated key, 0xF6f3…2342) | deploy config |
 
 Structural (no behaviour change): the token is created by the mint constructor (`minter = msg.sender`, no `initialize()`), because the
@@ -54,7 +54,7 @@ CREATE2 deployer proxy cannot make follow-up calls. Migration (snapshot/quota im
 | 27 | `setPoolBlocked` / unblockable routers | | identical | SAME |
 | 28 | `renounce()` | precondition seed/import; unpauses, disables blocks | no precondition (migration N/A); also starts the clock if never started | SAME (+G) |
 | 29 | Events | Jager set | Jager set + `SharesBurned`, `MintStarted`, `UnfilledWithdrawn` | SAME (+B, G) |
-| 30 | Errors | Jager set | Jager set minus migration-only errors + `AlreadyOpen`, `MintClosed`, `DeadlineNotReached` | SAME (+G) |
+| 30 | Errors | Jager set | Jager set minus migration-only errors + `AlreadyOpen`, `DeadlineNotReached` | SAME (+G) |
 | 31 | Selectors used by site/agents | `mint` 0x836a1040, `mintWithBnb` 0xe38fd349, `bnbQuote` 0x68bce8cd, … | identical (`test_JagerSelectors`) | SAME |
 | 32 | Extra read-only views | — | `overview()`, `walletStatus()`, `agentOf()`, `mintableNow()`, `soldShares()`, `mintDeadline()`, `canWithdrawUnfilled()`, `valve()`, `domainSeparator()` | additive |
 | 33 | Withdraw paths | none (all USDT ends in the pool or treasury) | only `withdrawUnfilled()` (G) | G |
@@ -67,13 +67,16 @@ The official pair is created empty by the token constructor. Before the open nob
 - Nobody can put BNAGENT into the pair; a USDT-only `pair.mint()` reverts (sqrt(x·0) − 1000 underflows) → **LP supply is always 0 before the open**.
 - USDT donated to the pair, with or without `sync()`, is absorbed: `pair.mint()` credits `balance − reserve` = exactly what `_open` sends, and the donation stays in the pool (LP to dead). Tested with 1 wei + 50,000 USDT + sync, and 7 USDT without sync.
 - `skim()` reverts before the open (it transfers 0 BNAGENT out of the pair, which the lock refuses) — harmless, same as Jager.
-- USDT donated to the mint contract does not change the opening (counters, not balances; C). It stays in the contract; it is swept to the treasury only if `withdrawUnfilled()` runs.
+- USDT donated to the mint contract does not change the opening (counters, not balances; C). It stays in the contract; it is swept to the treasury only if `withdrawUnfilled()` runs (after day 30, before the open).
 Jager's `_open` behaves the same way; no fix was needed beyond C.
 
 ## Judgment calls to note
-- Withdraw is allowed strictly **after** `start + 30 days`; minting is **not** auto-stopped at the deadline. Until the treasury calls
-  `withdrawUnfilled()`, minting continues and a mint that reaches 10,000 still opens the pool (then the withdraw is gone for good).
-- `withdrawUnfilled()` also sets `paused = true` so UIs reading only `paused` show minting stopped.
+- Withdraw is allowed strictly **after** `start + 30 days`; minting is never stopped by the deadline or by a withdraw.
+- **After day 30 (pool not open) the team can withdraw the parked 80% as many times as it wants and minting continues.** Anyone who mints
+  in that period can have their 80% withdrawn too. A later pool is backed only by the USDT parked after the last withdraw (e.g. withdraw at
+  8,000, open at 10,000 → 1,600 USDT + 80B instead of 7,120 USDT + 356B). Once the pool opens, no withdraw is possible ever again.
+- Parked tokens on withdraw: sent to DEAD (not kept, not re-used) so the later pool opens at the same 50M-per-USDT price minters paid,
+  instead of a huge token side against a small USDT side. They stay counted in totalSupply → cap math only gets more conservative.
 
 ## Tests
-`test/BnagentFork.t.sol`, BSC mainnet fork: **25/25 pass** (docs/test-results.txt).
+`test/BnagentFork.t.sol`, BSC mainnet fork: **26/26 pass** (docs/test-results.txt).

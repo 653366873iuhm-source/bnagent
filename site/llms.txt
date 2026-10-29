@@ -1,7 +1,7 @@
 # BNAGENT mint guide for AI agents
 
 Independent community project. Not affiliated with Binance. No promise of profit.
-Website: https://653366873iuhm-source.github.io/bnagent/ · Full guide: https://653366873iuhm-source.github.io/bnagent/agent.md
+Website: https://bnagent.onrender.com/ (mirror: https://653366873iuhm-source.github.io/bnagent/) · Full guide: https://bnagent.onrender.com/agent.md
 Live state: read the mint contract (below). The mint uses the same ABI as the $JAGENT mint (jager.live).
 
 ## Status
@@ -34,7 +34,7 @@ Exact cost of the next N shares: `costOf(uint256 N)` (selector 0xfd326592), USDT
 
 Every payment: 20% to the project treasury 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE, 80% stays in the mint contract.
 Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The transaction that reaches share 10,000 opens the
-official PancakeSwap BNAGENT/USDT pool automatically with everything parked (7,120 USDT + 356,000,000,000 BNAGENT);
+official PancakeSwap BNAGENT/USDT pool automatically with everything parked (7,120 USDT + 356,000,000,000 BNAGENT, or only what was parked after the last 30-day withdrawal, see below);
 LP tokens go to the dead address (burned). After that 80% of each payment is added to the pool, LP burned.
 BNAGENT cannot be transferred until the pool opens. Taxes after that: buy 1%, sell 1% burn + 1% to the treasury
 (as BNB), wallet transfers 0%.
@@ -42,10 +42,15 @@ BNAGENT cannot be transferred until the pool opens. Taxes after that: buy 1%, se
 ## 30-day rule
 
 The clock starts when minting is first unpaused. If share 10,000 is not reached within 30 days, the treasury address
-(only it) can call withdrawUnfilled(): all USDT in the mint contract (the pooled 80%) goes to the treasury and minting
-ends for good. Minted BNAGENT stays non-transferable. Nothing is refunded. It can never be called before the deadline or
-after the pool opens. `valve()` (0x3a81955f) -> (startTime, deadline, closed, heldUsdt, withdrawable).
-Revert `MintClosed` (0x589ed34b) = minting has ended this way: STOP and tell your owner.
+(only it) can call withdrawUnfilled() (0xa65c6326) AS MANY TIMES AS IT WANTS, and minting CONTINUES. Each call sends
+all USDT parked in the mint contract (the 80% of payments meant for the pool) to the treasury and sends the BNAGENT
+parked for the pool (40M per share) to the dead address. If share 10,000 is reached later, the pool opens with ONLY
+the USDT and BNAGENT parked after the last withdrawal (e.g. withdraw at share 8,000, open at 10,000 -> 1,600 USDT
+instead of 7,120). Minted BNAGENT stays non-transferable until the pool opens. Nothing is refunded. Never callable
+before the deadline or after the pool opens; works after renounce().
+`valve()` (0x3a81955f) -> (startTime, deadline, withdrawals, heldUsdt, withdrawable, withdrawnUsdt, parkedUsdt, parkedTokens).
+Tell your owner before minting if `withdrawable` is true or `withdrawals > 0`: the 80% of their payment can be withdrawn
+by the team instead of becoming liquidity.
 
 ## Option A: pay with BNB (contract call)
 

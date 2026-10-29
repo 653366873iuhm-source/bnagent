@@ -20,8 +20,10 @@ import {IV2Factory, IV2Pair, IWrappedNative, IAgentIdRegistry, IPriceFeed, V2Mat
 ///             the same pre-pool price (40M per 0.80 USDT = 50M per USDT -> 356B).
 ///         (d) 30-day safety valve: the clock starts when minting is first unpaused. If share 10,000 (the
 ///             automatic pool opening) has not been reached after MINT_WINDOW, only the treasury may call
-///             withdrawUnfilled(): every USDT held here goes to the treasury and minting closes for good.
-///             Never callable before the deadline or once the pool has opened. No other withdraw path.
+///             withdrawUnfilled(): the USDT parked here (the 80%) goes to the treasury, the tokens parked for the
+///             pool are sent to dead, and MINTING CONTINUES. It can be called again and again after the deadline
+///             until the pool opens; a pool that opens later is seeded only with what was parked after the last
+///             withdraw. Never callable before the deadline or once the pool has opened. No other withdraw path.
 ///         Money flow = reference: shares up to 10,000 pay 1 USDT, give 50M tokens and park 0.80 USDT plus
 ///         40M tokens for the opening pool (20% to the treasury). Share 10,000 opens the official pair with
 ///         everything parked (7,120 USDT + 356B tokens) in the same transaction, LP to dead. From share 10,001 the buyer gets
@@ -93,8 +95,10 @@ contract BnagentMint is ReentrancyGuard {
     uint256 public openedTime;
     /// @notice Set once, by the first setPaused(false) (or renounce(), which also unpauses). 0 = never started.
     uint256 public mintStartTime;
-    /// @notice True after withdrawUnfilled(): minting is closed for good.
-    bool public mintClosed;
+    /// @notice Number of withdrawUnfilled() calls so far (minting is never closed by them).
+    uint256 public unfilledWithdrawals;
+    /// @notice Total USDT sent to the treasury by withdrawUnfilled() calls.
+    uint256 public totalUnfilledWithdrawn;
     uint256 public lastTaxSwapBlock;
 
     mapping(uint256 => uint256) public mintedCount;
@@ -111,7 +115,7 @@ contract BnagentMint is ReentrancyGuard {
     event QuotaGranted(address indexed user, uint256 indexed agentTokenId, uint256 extra, bytes32 reason);
     event SharesBurned(uint256 firstSerial, uint256 lastSerial);
     event MintStarted(uint256 startTime, uint256 deadline);
-    event UnfilledWithdrawn(address indexed treasury, uint256 usdtAmount, uint256 totalMinted);
+    event UnfilledWithdrawn(address indexed treasury, uint256 usdtAmount, uint256 tokensToDead, uint256 totalMinted);
     event Opened(uint256 usdtIn, uint256 tokensIn, uint256 lp);
     event PoolBurned(uint256 atShare, uint256 amount);
     event TaxSwapped(uint256 tokensIn, uint256 bnbOut);
@@ -137,7 +141,6 @@ contract BnagentMint is ReentrancyGuard {
     error NotOpen();
     error AlreadyOpen();
     error NotSeeded();
-    error MintClosed();
     error DeadlineNotReached();
     error NothingToSwap();
     error SwappedThisBlock();
@@ -252,7 +255,7 @@ contract BnagentMint is ReentrancyGuard {
     /// @notice True when the treasury's withdrawUnfilled() would succeed now (caller check aside).
     function canWithdrawUnfilled() public view returns (bool) {
         uint256 d = mintDeadline();
-        return d != 0 && block.timestamp > d && !opened() && !mintClosed;
+        return d != 0 && block.timestamp > d && !opened();
     }
 
     /// @notice Shares sold so far (excludes the 1,100 burned).
@@ -260,9 +263,8 @@ contract BnagentMint is ReentrancyGuard {
         return totalMinted - BURNED_SHARES;
     }
 
-    /// @notice Shares that can still be minted (0 once minting is closed).
+    /// @notice Shares that can still be minted.
     function mintableNow() public view returns (uint256) {
-        if (mintClosed) return 0;
         return TOTAL_SHARES - totalMinted;
     }
 
@@ -307,13 +309,25 @@ contract BnagentMint is ReentrancyGuard {
     function valve()
         external
         view
-        returns (uint256 startTime, uint256 deadlineTime, bool closed, uint256 heldUsdt, bool withdrawable)
+        returns (
+            uint256 startTime,
+            uint256 deadlineTime,
+            uint256 withdrawals,
+            uint256 heldUsdt,
+            bool withdrawable,
+            uint256 withdrawnUsdt,
+            uint256 parkedUsdt,
+            uint256 parkedTokens
+        )
     {
         startTime = mintStartTime;
         deadlineTime = mintDeadline();
-        closed = mintClosed;
+        withdrawals = unfilledWithdrawals;
         heldUsdt = usdt.balanceOf(address(this));
         withdrawable = canWithdrawUnfilled();
+        withdrawnUsdt = totalUnfilledWithdrawn;
+        parkedUsdt = pendingUsdt;
+        parkedTokens = pendingTokens;
     }
 
     function walletStatus(address account)
@@ -370,21 +384,26 @@ contract BnagentMint is ReentrancyGuard {
 
     /// @notice BNAGENT safety valve. Only the treasury address (immutable; not an admin power, so it keeps
     ///         working after renounce()) and only after the 30-day deadline, while share 10,000 has not been
-    ///         reached. Sends every USDT this contract holds to the treasury and closes minting for good.
-    ///         Can never be called once the pool has opened. Tokens already minted stay non-transferable.
+    ///         reached. Sends every USDT this contract holds (the parked 80% of payments, plus any stray USDT
+    ///         sent here) to the treasury and resets the parked USDT to 0. The tokens parked for the pool
+    ///         (40M per share) are sent to the dead address and the parked token counter is reset, so a pool
+    ///         that opens later still opens at the pre-pool price (50M per USDT) with only what was parked after
+    ///         this call. Dead tokens stay counted in totalSupply, so the 4.44T cap can never be exceeded.
+    ///         MINTING CONTINUES. Repeatable any number of times until the pool opens; never after.
     function withdrawUnfilled() external nonReentrant {
         if (msg.sender != treasury) revert NotTreasury();
         if (opened()) revert AlreadyOpen();
-        if (mintClosed) revert MintClosed();
         uint256 d = mintDeadline();
         if (d == 0 || block.timestamp <= d) revert DeadlineNotReached();
-        mintClosed = true;
-        paused = true;
+        uint256 tokensOut = pendingTokens;
         pendingUsdt = 0;
+        pendingTokens = 0;
+        unfilledWithdrawals += 1;
+        if (tokensOut > 0) IERC20(address(token)).safeTransfer(DEAD, tokensOut);
         uint256 amount = usdt.balanceOf(address(this));
+        totalUnfilledWithdrawn += amount;
         if (amount > 0) usdt.safeTransfer(treasury, amount);
-        emit PausedSet(true);
-        emit UnfilledWithdrawn(treasury, amount, totalMinted);
+        emit UnfilledWithdrawn(treasury, amount, tokensOut, totalMinted);
     }
 
     function _is7702(address a) private view returns (bool) {
@@ -468,7 +487,6 @@ contract BnagentMint is ReentrancyGuard {
     }
 
     function _check(uint256 shares) private view returns (uint256 id) {
-        if (mintClosed) revert MintClosed();
         if (paused) revert Paused();
         if (shares == 0 || shares > MAX_PER_TX) revert BadShares();
         if (totalMinted + shares > TOTAL_SHARES) revert SoldOut();

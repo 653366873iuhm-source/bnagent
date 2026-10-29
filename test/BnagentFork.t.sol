@@ -761,7 +761,7 @@ contract BnagentForkTest is Test {
         assertEq(usdt.balanceOf(address(mint)), 8 ether);
     }
 
-    function test_ValveAfterDeadlineWithdrawsAndCloses() public {
+    function test_ValveAfterDeadlineWithdrawsAndMintingContinues() public {
         vm.prank(ALICE);
         mint.mint(10, address(0), 10 ether);
         vm.deal(BOB, 1 ether);
@@ -769,51 +769,106 @@ contract BnagentForkTest is Test {
         vm.prank(BOB);
         mint.mintWithBnb{value: q}(3, address(0), q);
         assertEq(usdt.balanceOf(address(mint)), 10.4 ether);
-        uint256 q1 = mint.bnbQuote(1); // quote before the warp (the price feed goes stale on a fork)
         vm.warp(startTs + 30 days + 1);
         assertTrue(mint.canWithdrawUnfilled());
-        (, uint256 dl,, uint256 held, bool w) = mint.valve();
+        (, uint256 dl, uint256 nW, uint256 held, bool w,, uint256 pU, uint256 pT) = mint.valve();
         assertEq(dl, startTs + 30 days);
+        assertEq(nW, 0);
         assertEq(held, 10.4 ether);
+        assertEq(pU, 10.4 ether);
+        assertEq(pT, 13 * mint.POOL_SHARE());
         assertTrue(w);
 
         uint256 t0 = usdt.balanceOf(treasury);
+        uint256 supply0 = token.totalSupply();
         vm.expectEmit(true, false, false, true, address(mint));
-        emit BnagentMint.UnfilledWithdrawn(treasury, 10.4 ether, 1_113);
+        emit BnagentMint.UnfilledWithdrawn(treasury, 10.4 ether, 13 * 40_000_000 ether, 1_113);
         vm.prank(treasury);
         mint.withdrawUnfilled();
-        assertEq(usdt.balanceOf(treasury) - t0, 10.4 ether, "all held USDT to treasury");
+        assertEq(usdt.balanceOf(treasury) - t0, 10.4 ether, "parked 80% to treasury");
         assertEq(usdt.balanceOf(address(mint)), 0);
         assertEq(mint.pendingUsdt(), 0);
-        assertTrue(mint.mintClosed());
-        assertTrue(mint.paused());
-        assertEq(mint.mintableNow(), 0);
-        assertFalse(mint.canWithdrawUnfilled());
+        assertEq(mint.pendingTokens(), 0);
+        assertEq(token.balanceOf(address(mint)), 0);
+        assertEq(token.balanceOf(mint.DEAD()), 13 * 40_000_000 ether, "parked tokens to dead");
+        assertEq(token.totalSupply(), supply0, "dead tokens stay in supply (cap stays conservative)");
+        assertEq(mint.unfilledWithdrawals(), 1);
+        assertEq(mint.totalUnfilledWithdrawn(), 10.4 ether);
+        assertFalse(mint.paused(), "minting continues");
+        assertEq(mint.mintableNow(), 30_000 - 1_113);
+        assertTrue(mint.canWithdrawUnfilled(), "repeatable");
 
-        // minting closed for good, even if the treasury unpauses
+        // minting continues after the withdraw (USDT; the BNB feed is stale on a warped fork)
         vm.prank(CAROL);
-        vm.expectRevert(BnagentMint.MintClosed.selector);
-        mint.mint(1, address(0), 1 ether);
+        mint.mint(5, address(0), 5 ether);
+        assertEq(mint.totalMinted(), 1_118);
+        assertEq(mint.pendingUsdt(), 4 ether);
+        assertEq(mint.pendingTokens(), 5 * mint.POOL_SHARE());
+        assertEq(token.balanceOf(CAROL), 5 * mint.USER_SHARE());
+
+        // second withdraw takes only what was parked since the first one
+        uint256 t1 = usdt.balanceOf(treasury);
         vm.prank(treasury);
-        mint.setPaused(false);
-        vm.prank(CAROL);
-        vm.expectRevert(BnagentMint.MintClosed.selector);
-        mint.mint(1, address(0), 1 ether);
-        vm.deal(CAROL, 1 ether);
-        vm.prank(CAROL);
-        vm.expectRevert(BnagentMint.MintClosed.selector);
-        mint.mintWithBnb{value: q1}(1, address(0), q1);
-        // one-shot
-        vm.prank(treasury);
-        vm.expectRevert(BnagentMint.MintClosed.selector);
         mint.withdrawUnfilled();
-        // tokens stay non-transferable; no pool, no tax swap
+        assertEq(usdt.balanceOf(treasury) - t1, 4 ether);
+        assertEq(mint.unfilledWithdrawals(), 2);
+        assertEq(mint.totalUnfilledWithdrawn(), 14.4 ether);
+        assertEq(token.balanceOf(mint.DEAD()), 18 * 40_000_000 ether);
+        // a withdraw with nothing parked is allowed and moves nothing
+        vm.prank(treasury);
+        mint.withdrawUnfilled();
+        assertEq(mint.unfilledWithdrawals(), 3);
+        assertEq(usdt.balanceOf(treasury) - t1, 4 ether);
+
+        // tokens stay non-transferable until the pool opens; no pool, no tax swap
         vm.prank(ALICE);
         vm.expectRevert(BnagentToken.TransfersClosed.selector);
         token.transfer(BOB, 1 ether);
         assertFalse(token.tradingEnabled());
         vm.expectRevert(BnagentMint.NotOpen.selector);
         mint.swapTax();
+    }
+
+    /// @notice Withdraw after day 30, keep minting, withdraw again, then reach share 10,000: the pool opens with
+    ///         only the USDT/tokens parked after the last withdraw, at the pre-pool price, LP to dead.
+    function test_ValveWithdrawThenPoolOpensWithParkedSinceLastWithdraw() public {
+        _bulkMint(5_000 - mint.totalMinted()); // 3,900 sold
+        vm.warp(startTs + 30 days + 1);
+        uint256 t0 = usdt.balanceOf(treasury);
+        vm.prank(treasury);
+        mint.withdrawUnfilled();
+        assertEq(usdt.balanceOf(treasury) - t0, 3_120 ether, "3,900 x 0.80");
+        _bulkMint(8_000 - mint.totalMinted()); // +3,000
+        vm.prank(treasury);
+        mint.withdrawUnfilled();
+        assertEq(usdt.balanceOf(treasury) - t0, 3_120 ether + 2_400 ether + 3_000 * 0.2 ether, "second withdraw + 20% cuts");
+        _bulkMint(9_990 - mint.totalMinted()); // +1,990 parked since the last withdraw
+        assertEq(mint.pendingUsdt(), 1_990 * 0.8 ether);
+        _bulkMint(10);
+        assertTrue(mint.opened());
+        assertTrue(token.tradingEnabled());
+        (uint256 u, uint256 t) = mint.reserves();
+        assertEq(u, 2_000 * 0.8 ether, "pool USDT = parked since last withdraw (1,600)");
+        assertEq(t, 2_000 * 40_000_000 ether, "pool tokens = parked since last withdraw (80B)");
+        assertEq(mint.pendingUsdt(), 0);
+        assertEq(mint.pendingTokens(), 0);
+        assertEq(usdt.balanceOf(address(mint)), 0);
+        assertGt(_lpAtDead(), 0);
+        _assertNoLpOutsideDead();
+        assertEq(token.balanceOf(mint.DEAD()), 6_900 * 40_000_000 ether, "withdrawn shares' pool tokens at dead");
+        assertLe(token.totalSupply(), token.MAX_SUPPLY());
+        vm.prank(treasury);
+        vm.expectRevert(BnagentMint.AlreadyOpen.selector);
+        mint.withdrawUnfilled();
+        assertFalse(mint.canWithdrawUnfilled());
+        // curve minting after the open still works on the smaller pool
+        uint256 supplyBefore = token.totalSupply();
+        _bulkMint(1_000);
+        assertEq(mint.totalMinted(), 11_000);
+        assertGt(token.totalSupply(), supplyBefore);
+        assertLe(token.totalSupply(), token.MAX_SUPPLY());
+        (uint256 u2,) = mint.reserves();
+        assertGt(u2, u);
     }
 
     function test_ValveWorksAfterRenounce() public {
@@ -826,10 +881,13 @@ contract BnagentForkTest is Test {
         vm.prank(treasury);
         mint.withdrawUnfilled();
         assertEq(usdt.balanceOf(treasury) - t0, 4 ether);
-        assertTrue(mint.mintClosed());
+        assertFalse(mint.paused());
         vm.prank(BOB);
-        vm.expectRevert(BnagentMint.MintClosed.selector);
         mint.mint(1, address(0), 1 ether);
+        assertEq(mint.pendingUsdt(), 0.8 ether);
+        vm.prank(treasury);
+        mint.withdrawUnfilled();
+        assertEq(usdt.balanceOf(treasury) - t0, 4.8 ether + 0.2 ether);
     }
 
     /// @notice Past the deadline but not yet withdrawn: a mint that reaches 10,000 opens the pool normally,

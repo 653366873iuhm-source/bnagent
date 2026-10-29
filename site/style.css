@@ -64,3 +64,7 @@ pre.cmd{font-size:11px;white-space:pre-wrap;word-break:break-all;margin:8px 0}
 .supply .bar{margin:10px 0 8px}.slegend{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
 .slegend .sw{width:10px;height:10px;border-radius:2px;background:linear-gradient(90deg,var(--gold3),var(--gold))}
 tr.burned td{color:var(--gold3);font-style:italic}
+.wbtn.bnqr{border-color:var(--gold3);background:linear-gradient(180deg,#1a1508,#0e0c07)}
+#qrBox{margin-top:10px}#qrBox .btn{display:block;text-align:center;text-decoration:none;margin-bottom:10px}
+.qrwrap{background:#fff;border-radius:12px;padding:10px;width:236px;margin:6px auto 4px;box-shadow:0 0 0 1px var(--gold3)}.qrwrap.sm{width:170px}.qrwrap svg{display:block;width:100%;height:auto}
+header img{height:36px}

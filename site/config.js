@@ -11,6 +11,10 @@ window.BNAGENT_CONFIG = {
   treasury: "0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE",
   explorer: "https://bscscan.com",
   repo: "https://github.com/653366873iuhm-source/bnagent",
+  site: "https://bnagent.onrender.com/",
+  // Binance Agentic Wallet QR login proxy (server/ in the repo, Render web service). The mint contract address must be added to
+  // its ALLOW_TO env var after deployment, otherwise mint previews are refused (USDT approve is always allowed).
+  agentApi: "https://bnagent-api.onrender.com/api/agent-wallet",
   // Social tasks: handles are placeholders until decided.
   social: {
     x: "",        // e.g. "bnagent" (without @)

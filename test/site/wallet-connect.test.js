@@ -5,7 +5,7 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const exe = require('child_process').execSync("find ~/.cache/ms-playwright/chromium_headless_shell-1148 -name headless_shell -type f").toString().trim();
 const ROOT = process.argv[2] || '/workspace/work/bnagent/site';
 const BASE = process.argv[3]; // optional: test a live URL instead of a local server
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.md': 'text/markdown' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain', '.md': 'text/markdown' };
 const srv = http.createServer((q, r) => { let f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); if (f.endsWith('/')) f += 'index.html'; fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); r.end(d); }); });
 const ADDR = '0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE'; // holds allin168.ai on BSC
 const mock = (addr) => `(() => {
@@ -81,6 +81,78 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     await pg.click('#disconnectBtn');
     ok('mock: disconnect clears the session', (await pg.textContent('#walletBox')).includes('Not connected'));
     ok('mock: no console errors', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+  // --- 3: Binance Agentic Wallet (.ai Agent ID) QR connect, desktop. The proxy is mocked: login -> QR, confirm CONNECTING then CONNECTED,
+  //        query CREATED, wallets -> chain 56 address. Then a mocked eth_sendTransaction goes through preview/execute.
+  const awMock = async (ctx, seen) => {
+    let confirms = 0, executes = 0;
+    await ctx.route('**/api/agent-wallet', async (route) => {
+      const req = route.request();
+      if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' } });
+      const { action, body } = JSON.parse(req.postData() || '{}'); seen.push(action);
+      const R = (data, sessionId = null) => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ sessionId, data: { code: '000000', data, ...(action === 'login' ? { extra: { pairingCode: 'ab1cd2' } } : {}) } }) });
+      if (action === 'login') return R({ connectionStatus: 'UNCONNECTED', qrInfo: { qrCodeUrl: 'https://app.binance.com/uni-qr/TESTqr01', qrCodeId: 'qr-1', expireAt: String(Date.now() + 300000) } });
+      if (action === 'confirm') return R({ connectionStatus: ++confirms < 2 ? 'CONNECTING' : 'CONNECTED' }, confirms >= 2 ? 'agentSessionId=test-session' : null);
+      if (action === 'query') return R({ connectionStatus: 'CONNECTED', walletCreateStatus: 'CREATED' });
+      if (action === 'wallets') return R([{ subWalletList: [{ curve: 'secp256k1', addresses: [{ binanceChainId: '56', address: ADDR }] }] }]);
+      if (action === 'preview') { seen.push('preview:' + body.binanceChainId + ':' + body.to); return R({ requestId: 'req-1' }); }
+      if (action === 'execute') return R(++executes < 2 ? { status: 'PENDING' } : { txHash: '0x' + 'ab'.repeat(32) });
+      if (action === 'logout') return R({});
+      return route.fulfill({ status: 400, body: '{}' });
+    });
+  };
+  {
+    const ctx = await b.newContext(); const seen = []; await awMock(ctx, seen); const pg = await ctx.newPage(); const errs = [];
+    pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push(String(e)));
+    await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
+    await pg.click('#connectBtn');
+    ok('qr: chooser shows the Binance Agentic Wallet (.ai Agent ID) option first', (await pg.textContent('#modalBody h3')).includes('Binance Wallet / Agent ID') && (await pg.isVisible('#bnQrBtn')));
+    await pg.click('#bnQrBtn');
+    await pg.waitForSelector('#qrBox .qrwrap svg', { timeout: 10000 }).catch(() => {});
+    const qrHtml = await pg.innerHTML('#qrBox').catch(() => '');
+    ok('qr: desktop shows a QR code + pairing code', /<svg/.test(qrHtml) && qrHtml.includes('ab1cd2') && !qrHtml.includes('bnOpenApp'), qrHtml.slice(0, 200));
+    await pg.screenshot({ path: __dirname + '/shot-qr.png', fullPage: false });
+    await pg.waitForFunction(() => /0x49E6/.test(document.getElementById('walletBox').textContent), null, { timeout: 25000 }).catch(() => {});
+    const wb = await pg.textContent('#walletBox');
+    ok('qr: connects the Agentic Wallet on BSC (chainId 56) after confirm/query/wallets', wb.includes('Agentic Wallet') && wb.includes('0x49E6…9BCE') && wb.includes('BNB Smart Chain (56)'), wb + ' | ' + seen.join(','));
+    ok('qr: Agent ID resolved for the Agentic Wallet', /allin168\.ai/.test(await pg.textContent('#walletBox')) || await pg.waitForFunction(() => /allin168\.ai/.test(document.getElementById('walletBox').textContent), null, { timeout: 15000 }).then(() => true).catch(() => false));
+    ok('qr: session id stored for later calls', (await pg.evaluate(() => sessionStorage.getItem('bnagent-aw-sid'))) === 'agentSessionId=test-session');
+    const tx = await pg.evaluate(async (a) => window.__bnagent.agenticProvider.request({ method: 'eth_sendTransaction', params: [{ from: a, to: '0x55d398326f99059fF775485246999027B3197955', data: '0x095ea7b3', gas: '0x30d40' }] }), ADDR).catch(e => 'ERR ' + e.message);
+    ok('qr: eth_sendTransaction -> preview (chain 56) -> execute polled until txHash', tx === '0x' + 'ab'.repeat(32) && seen.includes('preview:56:0x55d398326f99059fF775485246999027B3197955'), String(tx));
+    await pg.reload({ waitUntil: 'networkidle' });
+    await pg.waitForFunction(() => /0x49E6/.test(document.getElementById('walletBox').textContent), null, { timeout: 10000 }).catch(() => {});
+    ok('qr: Agentic Wallet session restored after reload', (await pg.textContent('#walletBox')).includes('0x49E6…9BCE'));
+    await pg.click('#disconnectBtn');
+    ok('qr: disconnect clears the Agentic session', (await pg.textContent('#walletBox')).includes('Not connected') && !(await pg.evaluate(() => sessionStorage.getItem('bnagent-aw-addr'))));
+    ok('qr: no console errors', errs.length === 0, errs.join(' | '));
+    await ctx.close();
+  }
+  // --- 4: same option on a phone: deep link into the Binance App (the QR URL is a Binance universal link)
+  {
+    const ctx = await b.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const seen = []; await awMock(ctx, seen); const pg = await ctx.newPage();
+    await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
+    await pg.click('#connectBtn');
+    await pg.click('#bnQrBtn');
+    await pg.waitForSelector('#bnOpenApp', { timeout: 10000 }).catch(() => {});
+    const href = await pg.getAttribute('#bnOpenApp', 'href').catch(() => null);
+    ok('qr-mobile: shows "Open in Binance App" deep link to the sign-in URL', href === 'https://app.binance.com/uni-qr/TESTqr01', String(href));
+    await pg.screenshot({ path: __dirname + '/shot-qr-mobile.png', fullPage: false });
+    await ctx.close();
+  }
+  // --- 5: branding + supply bar
+  {
+    const ctx = await b.newContext(); const pg = await ctx.newPage();
+    await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
+    const logoOk = await pg.evaluate(async () => { const img = document.querySelector('header img'); return !!img && img.complete && img.naturalWidth > 0 && /assets\/logo\.svg/.test(img.src); });
+    ok('brand: header logo loads', logoOk);
+    const og = await pg.getAttribute('meta[property="og:image"]', 'content');
+    ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og.png', og);
+    const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
+    ok('supply: SUPPLY, 1,100 / 30,000, one gold bar, one legend', sup.label === 'SUPPLY' && sup.big === '1,100 / 30,000' && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted 1,100 / 30,000', JSON.stringify(sup));
+    const wp = await pg.textContent('#whitepaper');
+    ok('docs: whitepaper states repeatable 30-day withdrawal and that minting continues', /as many times as it wants, and minting continues/.test(wp) && /opens with only the USDT and BNAGENT parked after the team's last withdrawal/.test(wp));
     await ctx.close();
   }
   await b.close();

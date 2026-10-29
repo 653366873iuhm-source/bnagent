@@ -1,2 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="#F7E7A1"/><stop offset=".5" stop-color="#D4AF37"/><stop offset="1" stop-color="#8C6A12"/></linearGradient></defs><rect width="120" height="120" rx="24" fill="#0a0a0a"/><polygon points="98.11,82.00 60.00,104.00 21.89,82.00 21.89,38.00 60.00,16.00 98.11,38.00" fill="none" stroke="url(#g)" stroke-width="5.28" stroke-linejoin="round"/><polygon points="83.63,73.64 60.00,87.28 36.37,73.64 36.37,46.36 60.00,32.72 83.63,46.36" fill="url(#g)" opacity=".14"/><path d="M41.52,76.63 L60.00,40.60 L78.48,76.63 M50.76,64.62 L69.24,64.62" fill="none" stroke="url(#g)" stroke-width="5.72" stroke-linecap="round" stroke-linejoin="round"/><circle cx="41.52" cy="76.63" r="3.96" fill="#F7E7A1"/><circle cx="60.00" cy="40.60" r="3.96" fill="#F7E7A1"/><circle cx="78.48" cy="76.63" r="3.96" fill="#F7E7A1"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>
+<linearGradient id="fg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBF0C0"/><stop offset=".45" stop-color="#E9CB6B"/><stop offset="1" stop-color="#7A5A12"/></linearGradient>
+<linearGradient id="fw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBF0C0"/><stop offset=".55" stop-color="#E9CB6B"/><stop offset="1" stop-color="#C9A23A"/></linearGradient>
+</defs><rect width="100" height="100" rx="22" fill="#070707"/><polygon points="50.00,51.00 50.00,3.80 90.88,27.40" fill="#F3DD8E"/>
+<polygon points="50.00,51.00 90.88,27.40 90.88,74.60" fill="#D9B44E"/>
+<polygon points="50.00,51.00 90.88,74.60 50.00,98.20" fill="#9C7623"/>
+<polygon points="50.00,51.00 50.00,98.20 9.12,74.60" fill="#B88E30"/>
+<polygon points="50.00,51.00 9.12,74.60 9.12,27.40" fill="#E6C766"/>
+<polygon points="50.00,51.00 9.12,27.40 50.00,3.80" fill="#FFF3C4"/>
+<polygon points="50.00,3.80 90.88,27.40 90.88,74.60 50.00,98.20 9.12,74.60 9.12,27.40" fill="none" stroke="#FFF7D6" stroke-opacity=".35" stroke-width="0.71" stroke-linejoin="round"/>
+<clipPath id="fc"><polygon points="50.00,3.80 90.88,27.40 90.88,74.60 50.00,98.20 9.12,74.60 9.12,27.40"/></clipPath>
+<path clip-path="url(#fc)" d="M17.43,97.02 L50.00,26.22 L82.57,97.02" fill="none" stroke="#070707" stroke-width="8.55" stroke-linejoin="miter" stroke-miterlimit="10"/>
+<circle cx="50.00" cy="61.62" r="3.89" fill="#070707"/></svg>

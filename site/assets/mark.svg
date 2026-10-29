@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="BNAGENT"><defs>
+<linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FBF0C0"/><stop offset=".45" stop-color="#E9CB6B"/><stop offset="1" stop-color="#7A5A12"/></linearGradient>
+<linearGradient id="mw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBF0C0"/><stop offset=".55" stop-color="#E9CB6B"/><stop offset="1" stop-color="#C9A23A"/></linearGradient>
+</defs><polygon points="50.00,3.00 90.70,26.50 90.70,73.50 50.00,97.00 9.30,73.50 9.30,26.50" fill="none" stroke="url(#mg)" stroke-width="1.60" stroke-linejoin="round" opacity=".9"/>
+<polygon points="50.00,50.00 50.00,10.00 84.64,30.00" fill="#F3DD8E"/>
+<polygon points="50.00,50.00 84.64,30.00 84.64,70.00" fill="#D9B44E"/>
+<polygon points="50.00,50.00 84.64,70.00 50.00,90.00" fill="#9C7623"/>
+<polygon points="50.00,50.00 50.00,90.00 15.36,70.00" fill="#B88E30"/>
+<polygon points="50.00,50.00 15.36,70.00 15.36,30.00" fill="#E6C766"/>
+<polygon points="50.00,50.00 15.36,30.00 50.00,10.00" fill="#FFF3C4"/>
+<polygon points="50.00,10.00 84.64,30.00 84.64,70.00 50.00,90.00 15.36,70.00 15.36,30.00" fill="none" stroke="#FFF7D6" stroke-opacity=".35" stroke-width="0.60" stroke-linejoin="round"/>
+<clipPath id="mc"><polygon points="50.00,10.00 84.64,30.00 84.64,70.00 50.00,90.00 15.36,70.00 15.36,30.00"/></clipPath>
+<path clip-path="url(#mc)" d="M22.40,89.00 L50.00,29.00 L77.60,89.00" fill="none" stroke="#070707" stroke-width="5.00" stroke-linejoin="miter" stroke-miterlimit="10"/>
+<circle cx="50.00" cy="59.00" r="3.30" fill="#070707"/></svg>

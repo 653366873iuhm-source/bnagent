@@ -13,6 +13,8 @@
     blockExplorerUrls: ["https://bscscan.com"],
   };
   const ZERO = "0x0000000000000000000000000000000000000000";
+  const AGENTIC = "com.binance.agentic-wallet";
+  let awReady = false; // set once the Agentic Wallet code below is initialised
   const qsLang = new URLSearchParams(location.search).get("lang");
   let lang = qsLang === "zh" || qsLang === "en" ? qsLang : localStorage.getItem("bnagent-lang") || ((navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en");
   let pay = "usdt", state = null, referrer = null;
@@ -92,7 +94,6 @@
     "0x79858a71": ["The BNB swap returned too little USDT. Nothing was charged; try again.", "BNB 兑换得到的 USDT 不足，未扣款，请重试。"],
     "0xf0c49d44": ["This wallet cannot receive BNB change. Pay with USDT instead.", "该钱包无法接收找零 BNB，请改用 USDT。"],
     "0xddafad98": ["The pool is not open yet.", "资金池尚未开启。"],
-    "0x589ed34b": ["Minting has ended: 10,000 shares were not reached within 30 days and the pooled USDT was withdrawn.", "铸造已结束：30 天内未达到第 10,000 份，池内 USDT 已被提取。"],
     "0xe450d38c": ["Not enough USDT in this wallet.", "钱包 USDT 余额不足。"],
     "0xfb8f41b2": ["USDT approval is too low. Approve again.", "USDT 授权额度不足，请重新授权。"],
   };
@@ -113,7 +114,7 @@
       try {
         const w = words(await call(C.mint, SEL.overview));
         state = { minted: Number(w[0]), paid: w[1], paused: w[2] === 1n, open: w[3] === 1n, nextCents: Number(w[4]), u: w[5], t: w[6], supply: w[7], circ: w[8], line: w[9], mintable: Number(w[10] || 0n) };
-        try { const v = words(await call(C.mint, SEL.valve)); Object.assign(state, { start: Number(v[0]), deadline: Number(v[1]), closed: v[2] === 1n, held: v[3] }); } catch (e) {}
+        try { const v = words(await call(C.mint, SEL.valve)); Object.assign(state, { start: Number(v[0]), deadline: Number(v[1]), withdrawals: Number(v[2]), held: v[3], withdrawable: v[4] === 1n, withdrawn: v[5] || 0n, parkedU: v[6] }); state.closed = false; } catch (e) {}
       } catch (e) { state = null; }
     }
     render();
@@ -147,10 +148,12 @@
       if (!s.open) $("sGet").textContent = "50,000,000 BNAGENT";
       else if (s.u > 0n) $("sGet").textContent = "≈ " + fmt((BigInt(s.nextCents) * 10n ** 16n * s.t * 10000n) / (s.u * 9900n), 0) + " BNAGENT";
       $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens automatically at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时自动开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
-      $("sPaused").textContent = s.closed ? T("Ended (30-day deadline, USDT withdrawn)", "已结束（30 天期限已过，USDT 已提取）") : s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
+      $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
       $("sDeadline").textContent = s.open ? T("Not applicable: pool is open", "已开池，不再适用") : s.deadline ? dl(s.deadline) + (Date.now() / 1000 > s.deadline ? T(" (passed)", "（已过）") : "") : T("30 days after minting opens", "开放铸造后 30 天");
+      $("sWithdrawn").textContent = s.withdrawals ? T(`${fmt(s.withdrawn)} USDT in ${s.withdrawals} withdrawal${s.withdrawals > 1 ? "s" : ""}; pool would open with ${fmt(s.parkedU || 0n)} USDT parked since`, `已提取 ${s.withdrawals} 次，共 ${fmt(s.withdrawn)} USDT；开池将只用此后留存的 ${fmt(s.parkedU || 0n)} USDT`) : s.withdrawable ? T("None yet (allowed now: deadline passed)", "暂无（期限已过，团队现在可以提取）") : T("None", "无");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", next >= +tr.dataset.from && next <= +tr.dataset.to));
     } else {
+      $("sWithdrawn").textContent = T("None (only possible after day 30)", "无（仅 30 天后可能发生）");
       progress(BURNED);
       if (deployed) { $("sMinted").textContent = "–"; $("sLegend").textContent = `Burned + Minted – / ${TOTAL.toLocaleString()}`; }
       $("sTier").textContent = tierName(1101); $("sNext").textContent = "#1,101"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
@@ -299,7 +302,8 @@
   async function tryAutoReconnect() {
     const want = localStorage.getItem("bnagent-wallet");
     if (!want || W.account || autoTried) return;
-    const w = walletList().find((x) => x.rdns === want);
+    if (want === AGENTIC && !awReady) return;
+    const w = want === AGENTIC ? (sessionStorage.getItem("bnagent-aw-addr") ? agenticWallet() : null) : walletList().find((x) => x.rdns === want);
     if (!w) return;
     autoTried = true;
     try {
@@ -366,7 +370,7 @@
     else if (!s) label = T("Loading…", "加载中…");
     else if (s.paused) label = T("Minting is paused", "铸造已暂停");
     else if (s.minted >= 30000) label = T("Sold out", "已售罄");
-    else if (s.closed || s.mintable === 0) label = T("Minting ended", "铸造已结束");
+    else if (s.mintable === 0) label = T("Minting ended", "铸造已结束");
     else if (W.status && W.status.quota - W.status.minted <= 0) label = T("Quota used · invite or do tasks", "额度已用完 · 邀请或做任务");
     else { label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${$("costOut").textContent.replace("≈ ", "")}`, `铸造 ${qty()} 份 · ${$("costOut").textContent.replace("≈ ", "")}`); ok = true; }
     b.textContent = label;
@@ -391,9 +395,137 @@
       `请阅读 ${base}llms.txt 并按其中步骤，用我的币安 Agentic Wallet 在 BNB Smart Chain（chainId 56）上铸造 BNAGENT：铸造 <N> 份，用 <BNB 或 USDT> 支付，邀请人 <handle.ai 或无>。只使用该文件公布的铸造合约地址；如果文件写着合约未部署，就停止并告诉我。执行前先给我看预览（preview）。`
     );
   }
+
+  // ---------------------------------------------------------------- Binance Agentic Wallet (.ai Agent ID) QR connect
+  // Same flow as jager.live: our proxy (server/index.mjs, C.agentApi) forwards to Binance's Agentic Wallet API.
+  // login -> QR (desktop) / app link (mobile) -> confirm until CONNECTED -> query until wallet CREATED -> wallets (chain 56).
+  // Transactions: preview {binanceChainId 56, from, to, value, inputData, gasLimit} -> requestId -> poll execute until txHash;
+  // the user approves each one in the Binance App. Exposed as an EIP-1193-style provider so the mint flow is unchanged.
+  const AW = { abort: null, qr: null, phase: "idle", err: "" };
+  const awStore = {
+    cid() { let c = sessionStorage.getItem("bnagent-aw-cid"); if (!c) { c = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()); sessionStorage.setItem("bnagent-aw-cid", c); } return c; },
+    sid: () => sessionStorage.getItem("bnagent-aw-sid"),
+    setSid: (v) => v && sessionStorage.setItem("bnagent-aw-sid", v),
+    clear: () => { sessionStorage.removeItem("bnagent-aw-sid"); sessionStorage.removeItem("bnagent-aw-addr"); },
+  };
+  const deep = (o, k) => { if (!o || typeof o !== "object") return null; if (Array.isArray(o)) { for (const x of o) { const r = deep(x, k); if (r) return r; } return null; } if (typeof o[k] === "string" && o[k]) return o[k]; for (const v of Object.values(o)) { const r = deep(v, k); if (r) return r; } return null; };
+  const sleep = (ms, sig) => new Promise((res, rej) => { const t = setTimeout(res, ms); if (sig) sig.addEventListener("abort", () => { clearTimeout(t); rej(new Error(T("Connection cancelled.", "已取消连接。"))); }, { once: true }); });
+  async function aw(action, body) {
+    if (!C.agentApi) throw new Error(T("Agent ID QR login is not configured on this site.", "本站未配置 Agent ID 扫码登录。"));
+    const r = await fetch(C.agentApi, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, clientId: awStore.cid(), sessionId: awStore.sid(), body: body || {} }) });
+    const j = await r.json().catch(() => ({}));
+    if (j.error) throw new Error(j.error);
+    awStore.setSid(j.sessionId);
+    const d = j.data || {};
+    const code = d.code;
+    if (code != null && code !== "000000" && code !== 0 && code !== "0") { const e = new Error(d.message || d.msg || `Agent Wallet error ${code}`); e.code = code; throw e; }
+    if (!r.ok) throw new Error(d.message || "Agent Wallet request failed");
+    const out = d.data ?? d; if (d.extra && out && typeof out === "object") out.extra = d.extra; return out;
+  }
+  async function awWallet() {
+    const res = await aw("wallets");
+    const found = [];
+    const walk = (o, chain) => { if (!o || typeof o !== "object") return; if (Array.isArray(o)) return o.forEach((x) => walk(x, chain)); const c = String(o.binanceChainId ?? o.chainId ?? chain); const a = o.address ?? o.walletAddress; if (typeof a === "string" && isAddr(a) && (c === "56" || c === "0x38")) found.push(a); Object.values(o).forEach((x) => walk(x, c)); };
+    walk(res, "");
+    return found[0] || null;
+  }
+  const agenticProvider = {
+    isBinanceAgentic: true,
+    async request({ method, params }) {
+      const a = sessionStorage.getItem("bnagent-aw-addr");
+      if (method === "eth_requestAccounts" || method === "eth_accounts") return a ? [a] : [];
+      if (method === "eth_chainId") return BSC;
+      if (method === "wallet_switchEthereumChain" || method === "wallet_addEthereumChain") return null;
+      if (method === "wallet_revokePermissions") { aw("logout").catch(() => {}); awStore.clear(); return null; }
+      if (method === "eth_sendTransaction") {
+        const tx = params[0];
+        const pv = await aw("preview", { binanceChainId: "56", from: tx.from, to: tx.to, value: tx.value ? BigInt(tx.value).toString() : "0", inputData: tx.data, gasLimit: tx.gas ? Number(BigInt(tx.gas)) : undefined });
+        const requestId = deep(pv, "requestId");
+        if (!requestId) throw new Error(T("The Agentic Wallet did not accept the transaction preview.", "Agentic Wallet 未接受交易预览。"));
+        status(T("Confirm the transaction in your Binance App…", "请在币安 App 中确认交易…"));
+        const until = Date.now() + 180000;
+        for (;;) {
+          const ex = await aw("execute", { requestId });
+          const h = deep(ex, "txHash") || deep(ex, "transactionHash") || deep(ex, "hash");
+          if (h && /^0x[0-9a-fA-F]{64}$/.test(h)) return h;
+          if (Date.now() > until) throw new Error(T("The Binance App did not confirm the transaction.", "币安 App 未确认该交易。"));
+          await sleep(3000);
+        }
+      }
+      throw Object.assign(new Error("unsupported " + method), { code: 4200 });
+    },
+    on() {}, removeListener() {},
+  };
+  const agenticWallet = () => ({ name: T("Binance Agentic Wallet (Agent ID)", "币安 Agentic Wallet（Agent ID）"), icon: "", rdns: AGENTIC, provider: agenticProvider });
+  awReady = true;
+  function stopQr() { if (AW.abort) AW.abort.abort(); AW.abort = null; AW.qr = null; AW.phase = "idle"; AW.err = ""; }
+  async function startQr() {
+    stopQr();
+    const ctl = new AbortController(); AW.abort = ctl; AW.phase = "preparing"; renderQr();
+    try {
+      awStore.clear();
+      const res = await aw("login");
+      const qi = (res && res.qrInfo) || res || {};
+      const url = String(qi.qrCodeUrl || qi.urlForWeb || "");
+      const id = String(qi.qrCodeId || "");
+      let exp = Number(qi.expireAt || 0); if (exp > 0 && exp < 1e12) exp *= 1000;
+      if (!url || !id) throw new Error(T("Could not get a sign-in code. Try again.", "未能获取登录二维码，请重试。"));
+      AW.qr = { url, id, exp: exp || Date.now() + 300000, code: (res.extra && res.extra.pairingCode) || "" };
+      AW.phase = "pending"; renderQr();
+      for (;;) { // phase 1: scanned + approved in the app
+        if (ctl.signal.aborted) return;
+        if (Date.now() > AW.qr.exp) { AW.phase = "expired"; renderQr(); return; }
+        const c = await aw("confirm", { qrCodeId: id }).catch((e) => { if (/expire/i.test(e.message)) throw e; return null; });
+        const st = c && String(c.connectionStatus || "");
+        if (st === "CONNECTING" && AW.phase !== "scanned") { AW.phase = "scanned"; renderQr(); }
+        if (st === "CONNECTED") break;
+        await sleep(2000, ctl.signal);
+      }
+      AW.phase = "linking"; renderQr();
+      const until = Date.now() + 90000;
+      let addr = null;
+      while (!addr && Date.now() < until) { // phase 2: wallet ready
+        const q = await aw("query").catch(() => null);
+        if (q && String(q.walletCreateStatus || "") === "CREATED") addr = await awWallet().catch(() => null);
+        if (!addr) await sleep(2000, ctl.signal);
+      }
+      if (!addr) throw new Error(T("The Agentic Wallet did not finish connecting. Get a new code.", "Agentic Wallet 未完成连接，请获取新二维码。"));
+      sessionStorage.setItem("bnagent-aw-addr", addr);
+      AW.phase = "idle"; AW.abort = null;
+      await connectWith(agenticWallet());
+    } catch (e) {
+      if (ctl.signal.aborted) return;
+      AW.phase = /expire/i.test(e.message || "") ? "expired" : "failed"; AW.err = e.message || String(e); renderQr();
+    }
+  }
+  function qrSvg(text) {
+    if (typeof window.qrcode !== "function") return "";
+    const q = window.qrcode(0, "M"); q.addData(text); q.make();
+    return q.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  }
+  function renderQr() {
+    const box = $("qrBox"); if (!box) return;
+    const ph = AW.phase;
+    if (ph === "idle") { box.innerHTML = ""; return; }
+    let h = "";
+    if (ph === "preparing") h = `<p class="small">${T("Getting a sign-in code from Binance…", "正在从币安获取登录二维码…")}</p>`;
+    else if (AW.qr && (ph === "pending" || ph === "scanned")) {
+      const mobile = isMobile();
+      h += mobile ? `<a class="btn" id="bnOpenApp" href="${esc(AW.qr.url)}" rel="noopener">${T("Open in Binance App", "在币安 App 中打开")}</a>` : "";
+      h += `<div class="qrwrap${mobile ? " sm" : ""}">${qrSvg(AW.qr.url)}</div>`;
+      h += `<p class="small" style="text-align:center">${mobile ? T("The Binance App opens and asks you to approve. Come back here afterwards.", "将打开币安 App 请求授权，授权后回到本页。") : T("Scan with the Binance App (Wallet → scan), then approve the Agentic Wallet sign-in.", "用币安 App 扫码（钱包 → 扫一扫），然后批准 Agentic Wallet 登录。")}${AW.qr.code ? `<br>${T("Pairing code", "配对码")}: <b class="mono">${esc(AW.qr.code)}</b>` : ""}</p>`;
+      h += `<p class="small" id="qrState" style="text-align:center">${ph === "scanned" ? T("Scanned. Approve in the app…", "已扫码，请在 App 中批准…") : T("Waiting for scan…", "等待扫码…")}</p>`;
+    } else if (ph === "linking") h = `<p class="small">${T("Approved. Linking your Agentic Wallet…", "已批准，正在连接 Agentic Wallet…")}</p>`;
+    else if (ph === "expired") h = `<p class="small">${T("This sign-in code expired.", "二维码已过期。")}</p><button class="mini" id="qrRetry">${T("Get a new code", "获取新二维码")}</button>`;
+    else if (ph === "failed") h = `<p class="small badc">${esc(AW.err)}</p><button class="mini" id="qrRetry">${T("Try again", "重试")}</button>`;
+    box.innerHTML = h;
+    if ($("qrRetry")) $("qrRetry").onclick = startQr;
+  }
   function renderModal() {
     const list = walletList();
-    let h = `<h3>${T("Browser wallets", "浏览器钱包")}</h3>`;
+    let h = `<h3>${T("Binance Wallet / Agent ID", "币安钱包 / Agent ID")}</h3>` +
+      `<div class="wlist"><button class="wbtn bnqr" id="bnQrBtn" ${W.busy ? "disabled" : ""}><img class="wicon" src="assets/mark.svg" alt=""><span>${T("Binance Agentic Wallet (.ai Agent ID)", "币安 Agentic Wallet（.ai Agent ID）")}</span><em>${isMobile() ? T("open app", "打开 App") : T("scan QR", "扫码")}</em></button></div><div id="qrBox"></div>`;
+    h += `<h3>${T("Browser wallets", "浏览器钱包")}</h3>`;
     if (list.length) {
       h += `<div class="wlist">` + list.map((w, i) => `<button class="wbtn" data-i="${i}" ${W.busy ? "disabled" : ""}>${w.icon && /^data:image\//.test(w.icon) ? `<img class="wicon" src="${esc(w.icon)}" alt="">` : `<span class="wicon ph">${esc(w.name[0] || "W")}</span>`}<span>${esc(w.name)}</span>${/binance/i.test(w.rdns + w.name) ? `<em>${T("recommended", "推荐")}</em>` : ""}</button>`).join("") + `</div>`;
     } else {
@@ -411,6 +543,8 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
       `<p class="small">${T("Check an Agentic Wallet address (read-only):", "查询 Agentic Wallet 地址（只读）：")}</p>` +
       `<div class="ctrl"><input id="watchAddr" placeholder="0x…" spellcheck="false" style="width:100%;text-align:left"><button class="mini" id="watchBtn">${T("Check", "查询")}</button></div><div class="small" id="watchOut"></div>`;
     $("modalBody").innerHTML = h;
+    $("bnQrBtn").onclick = startQr;
+    renderQr();
     document.querySelectorAll("#modalBody .wbtn[data-i]").forEach((el) => (el.onclick = () => connectWith(list[+el.dataset.i])));
     $("copyUrl").onclick = () => copy(dappUrl(), $("copyUrl"));
     $("copyPrompt").onclick = () => copy(agentPrompt(), $("copyPrompt"));
@@ -435,7 +569,7 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     const d = $("walletModal");
     if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", "");
   }
-  function closeModal() { const d = $("walletModal"); if (d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); } }
+  function closeModal() { if (AW.phase !== "linking") stopQr(); const d = $("walletModal"); if (d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); } }
   $("modalClose").onclick = closeModal;
   $("walletModal").addEventListener("click", (e) => { if (e.target === $("walletModal")) closeModal(); });
   $("connectBtn").onclick = () => {
@@ -511,5 +645,5 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
   load();
   setTimeout(tryAutoReconnect, 400);
   setInterval(load, 15000);
-  window.__bnagent = { W, walletList };
+  window.__bnagent = { W, walletList, AW, agenticProvider };
 })();

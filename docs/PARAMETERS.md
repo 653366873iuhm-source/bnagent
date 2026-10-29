@@ -17,7 +17,7 @@ BNAGENT re-implements the mechanism in its own code with Jager's money model (us
 | Opening pool | 8,000 USDT + 400B (hard-coded) | **parked amounts**: 8,900 × 0.80 = 7,120 USDT + 8,900 × 40M = 356B (50M per USDT) | user 00:34 |
 | Payment split | 20% treasury / 80% pool | same | Jager |
 | LP tokens | dead | dead | Jager |
-| Unfilled deadline | — | 30 days from the first unpause; treasury-only `withdrawUnfilled()` | user 00:25 |
+| Unfilled deadline | — | 30 days from the first unpause; then treasury-only `withdrawUnfilled()`, **repeatable, minting continues**; parked USDT → treasury, parked pool tokens → dead; a later pool uses only what was parked after the last withdraw | user 00:25, changed 00:54 |
 | Social signer | dedicated key | dedicated key 0x66ECa9C28e4e4807e37C078b917e527DC85aC199 | user 00:25 |
 | Pool minimum token reserve | 11,666,666,667 | **116,666,667** | × cap ratio 4.44T / 444T = 1/100 |
 | Tax swap cap | 10 bps of pool token reserve | **10 bps** (unchanged) | already relative to the pool, so it scales by itself; absolute size shrinks with the pool |
