@@ -47,8 +47,8 @@
   <div class="card">
     <h2><span class="en">Mint BNAGENT</span><span class="zh">铸造 BNAGENT</span></h2>
     <div id="notDeployed" class="empty" style="display:none">
-      <span class="en">Contracts are not deployed yet. Addresses will appear here after launch.</span>
-      <span class="zh">合约尚未部署，上线后这里会显示合约地址。</span>
+      <span class="en">Contracts are not deployed yet (合约未部署). You can already connect a wallet and check your .ai Agent ID; minting starts once the addresses are published here.</span>
+      <span class="zh">合约未部署。现在已可连接钱包并查询你的 .ai Agent ID；合约地址在此公布后即可铸造。</span>
     </div>
     <div class="row"><span><span class="en">Shares minted</span><span class="zh">已铸造</span></span><span class="mono" id="sMinted">– / 30,000</span></div>
     <div class="bar"><i id="sBar"></i></div>
@@ -65,10 +65,11 @@
       <span class="small" id="costOut"></span>
     </div>
     <div class="small" id="refInfo"></div>
-    <div class="small" id="walletInfo"></div>
+    <div id="walletBox" class="wbox"></div>
     <div style="display:grid;gap:8px;margin-top:10px">
       <button class="btn ghost" id="connectBtn"><span class="en">Connect wallet</span><span class="zh">连接钱包</span></button>
-      <button class="btn" id="mintBtn" disabled><span class="en">Mint</span><span class="zh">铸造</span></button>
+      <button class="btn" id="mintBtn" disabled>Mint</button>
+      <div class="btnrow"><button class="mini" id="disconnectBtn" style="display:none"><span class="en">Disconnect</span><span class="zh">断开连接</span></button><button class="mini" id="agentBtn"><span class="en">Using an AI agent / Agentic Wallet?</span><span class="zh">用 AI Agent / Agentic Wallet 铸造？</span></button></div>
     </div>
     <div class="status" id="status"></div>
     <p class="small"><span class="en">Max 10 shares per transaction. A plain BNB or USDT transfer to the contract does not mint.</span><span class="zh">每笔最多 10 份。直接向合约转 BNB 或 USDT 不会铸造。</span></p>
@@ -83,8 +84,8 @@
     <thead><tr><th><span class="en">Shares</span><span class="zh">份数区间</span></th><th><span class="en">Price per share</span><span class="zh">每份价格</span></th><th><span class="en">You receive</span><span class="zh">可得数量</span></th></tr></thead>
     <tbody id="tierBody">
       <tr data-from="1" data-to="10000"><td>1 – 10,000</td><td>1.00 USDT</td><td><span class="en">50,000,000 BNAGENT per share</span><span class="zh">每份 50,000,000 BNAGENT</span></td></tr>
-      <tr data-from="10001" data-to="20000"><td>10,001 – 20,000</td><td><span class="en">1.10, +0.10 every 1,000 shares (to 2.00)</span><span class="zh">1.10 起，每 1,000 份 +0.10（至 2.00）</span></td><td><span class="en">Pool price −1% after trading opens (50,000,000 per share before)</span><span class="zh">开放交易后按池价 9.9 折（之前每份 50,000,000）</span></td></tr>
-      <tr data-from="20001" data-to="30000"><td>20,001 – 30,000</td><td><span class="en">2.10, +0.02 every 1,000 shares (to 2.28)</span><span class="zh">2.10 起，每 1,000 份 +0.02（至 2.28）</span></td><td><span class="en">Pool price −1% after trading opens (50,000,000 per share before)</span><span class="zh">开放交易后按池价 9.9 折（之前每份 50,000,000）</span></td></tr>
+      <tr data-from="10001" data-to="20000"><td>10,001 – 20,000</td><td><span class="en">1.10, +0.10 every 1,000 shares (to 2.00)</span><span class="zh">1.10 起，每 1,000 份 +0.10（至 2.00）</span></td><td><span class="en">Pool price −1% (mintable once trading is open)</span><span class="zh">按池价 9.9 折（开放交易后才可铸造）</span></td></tr>
+      <tr data-from="20001" data-to="30000"><td>20,001 – 30,000</td><td><span class="en">2.10, +0.02 every 1,000 shares (to 2.28)</span><span class="zh">2.10 起，每 1,000 份 +0.02（至 2.28）</span></td><td><span class="en">Pool price −1%</span><span class="zh">按池价 9.9 折</span></td></tr>
     </tbody>
   </table>
   <details style="margin-top:14px"><summary class="small"><span class="en">Show every 1,000-share step</span><span class="zh">展开每 1,000 份的价格</span></summary><div id="stepTable" style="margin-top:10px"></div></details>
@@ -123,21 +124,21 @@
     <ul>
       <li>Eligibility: the sending wallet must hold a <code>.ai</code> Agent ID (read on-chain from the SPACE ID registry).</li>
       <li>Quota: 10 shares per Agent ID, +1 per invited Agent ID's first paid mint, +1 per social task (3 tasks). Max 10 shares per transaction.</li>
-      <li>Shares 1–10,000, and any later share minted before trading opens, give 50,000,000 BNAGENT each (price from the table). After trading opens, the payment buys BNAGENT at the pool price minus 1%.</li>
-      <li>Pay with USDT (approve, then mint with a maximum cost) or with BNB (priced with Chainlink BNB/USD plus 1%; BNB above the quote is refunded).</li>
-      <li>100% of each payment goes straight to the project treasury (<span class="mono addr">0x49E6…9BCE</span>) in the same transaction: USDT as USDT, BNB as BNB. The mint contract holds no funds.</li>
+      <li>Shares 1–10,000 give 50,000,000 BNAGENT each. Share 10,001 and later can be minted only after trading opens; the payment then buys BNAGENT at the pool price minus 1%.</li>
+      <li>Pay with USDT (approve, then mint with a maximum cost) or with BNB (priced with Chainlink BNB/USD plus 1%, swapped to USDT on PancakeSwap in the same transaction; BNB above the quote is refunded).</li>
+      <li>100% of each payment goes straight to the project treasury (<span class="mono addr">0x49E6…9BCE</span>) in the same transaction, in USDT (BNB payments are swapped to USDT first, and the whole swap output goes to the treasury). The mint contract holds no funds.</li>
     </ul>
     <h3>4. Liquidity</h3>
     <ul>
       <li>The official BNAGENT/USDT PancakeSwap pair is created empty at deployment. No contract adds, locks or burns liquidity.</li>
       <li>The transaction that mints share 10,000 also mints 400,000,000,000 BNAGENT to the treasury. The team then adds liquidity manually by pairing these tokens with USDT from the treasury. The amount of USDT, and so the opening price, is the team's decision. The LP tokens stay with the treasury: they are not locked or burned, and the team can remove that liquidity.</li>
-      <li>Trading opens only when the treasury calls <code>openTrading()</code>. This works only after share 10,000 and once the official pair holds liquidity, and it can never be undone.</li>
+      <li>Minting pauses at share 10,000 until the treasury calls <code>openTrading()</code>. This works only after share 10,000 and once the official pair holds liquidity, and it can never be undone.</li>
       <li>Floor line (active only after trading opens): <code>line = total USDT paid × 85,477 / 47,400</code> (≈ 1.80 × total paid). If the pool value of circulating BNAGENT is below the line, the mint burns BNAGENT from the pool, raising the price by at most 0.8% per transaction and always keeping at least 116,666,667 BNAGENT in the pool.</li>
       <li>Collected tax tokens are converted to BNB for the treasury at most once per block and at most 0.10% of the pool's BNAGENT reserve per conversion.</li>
       <li>Minting ends at share 30,000 or at the supply cap.</li>
     </ul>
     <h3>5. Admin controls</h3>
-    <p>The treasury calls <code>openTrading()</code> once (see section 4). Until it calls <code>renounce()</code> (possible only after trading opens) it can also (a) pause / resume minting and (b) block / unblock a contract that acts as a BNAGENT trading pool. <code>renounce()</code> removes both powers permanently. The treasury holds all mint proceeds and the LP, and adds liquidity manually. Nobody can mint outside the price table, change the tax, change its recipient or freeze a wallet. Minting starts paused and is opened by the treasury after deployment.</p>
+    <p>The treasury calls <code>openTrading()</code> once (see section 4). Until it calls <code>renounce()</code> it can also (a) pause / resume minting and (b) block / unblock a contract that acts as a BNAGENT trading pool. <code>renounce()</code> removes both powers permanently. The treasury holds all mint proceeds and the LP, and adds liquidity manually. Nobody can mint outside the price table, change the tax, change its recipient or freeze a wallet. Minting starts paused and is opened by the treasury after deployment.</p>
     <h3>6. Independence</h3>
     <p>BNAGENT is an independent community project. It is not affiliated with, endorsed by, or operated by Binance, SPACE ID, PancakeSwap or Chainlink; it only uses their public on-chain contracts.</p>
   </div>
@@ -155,21 +156,21 @@
     <ul>
       <li>资格：发送交易的钱包必须持有 <code>.ai</code> Agent ID（链上读取 SPACE ID 注册表）。</li>
       <li>额度：每个 Agent ID 10 份；被邀请的 Agent ID 首次付费铸造，邀请人 +1；每完成一项社交任务 +1（共 3 项）。每笔最多 10 份。</li>
-      <li>第 1–10,000 份，以及开放交易之前铸造的后续份额，每份得 50,000,000 BNAGENT（价格按价格表）；开放交易后按池价 9.9 折买入。</li>
-      <li>可用 USDT（先授权，再带最高价铸造）或 BNB 支付（按 Chainlink BNB/USD 价格 +1% 计价，多付的 BNB 退回）。</li>
-      <li>每笔付款 100% 在同一笔交易内直接进入项目金库（<span class="mono addr">0x49E6…9BCE</span>）：USDT 以 USDT 形式、BNB 以 BNB 形式。铸造合约不留存任何资金。</li>
+      <li>第 1–10,000 份每份得 50,000,000 BNAGENT。第 10,001 份起只有在开放交易后才能铸造，按池价 9.9 折买入。</li>
+      <li>可用 USDT（先授权，再带最高价铸造）或 BNB 支付（按 Chainlink BNB/USD 价格 +1% 计价，同一笔交易内在 PancakeSwap 换成 USDT，多付的 BNB 退回）。</li>
+      <li>每笔付款 100% 在同一笔交易内以 USDT 直接进入项目金库（<span class="mono addr">0x49E6…9BCE</span>）（BNB 付款先换成 USDT，兑换所得全部进金库）。铸造合约不留存任何资金。</li>
     </ul>
     <h3>4. 流动性</h3>
     <ul>
       <li>官方 BNAGENT/USDT PancakeSwap 交易对在部署时创建（空池）。没有任何合约会自动加池、锁定或销毁 LP。</li>
       <li>铸出第 10,000 份的那笔交易同时向金库铸造 400,000,000,000 BNAGENT。随后由团队手动用金库中的 USDT 与这些代币配对添加流动性，投入多少 USDT（即开盘价）由团队决定。LP 由金库持有，不锁定、不销毁，团队可以撤出这部分流动性。</li>
-      <li>只有金库调用 <code>openTrading()</code> 后才开放交易：必须已售出第 10,000 份且官方交易对已有流动性，开放后不可撤销。</li>
+      <li>铸造在第 10,000 份后暂停，直到金库调用 <code>openTrading()</code> 开放交易：必须已售出第 10,000 份且官方交易对已有流动性，开放后不可撤销。</li>
       <li>地板线（仅在开放交易后生效）：<code>线 = 累计付款 USDT × 85,477 / 47,400</code>（约为累计付款的 1.80 倍）。流通 BNAGENT 按池价计算的市值低于该线时，铸造会从池中销毁 BNAGENT 抬高价格，每笔最多抬升 0.8%，池中始终保留至少 116,666,667 枚。</li>
       <li>收到的税币每个区块最多兑换一次，每次不超过池中 BNAGENT 储备的 0.10%，换成 BNB 发往金库。</li>
       <li>铸满 30,000 份或达到供应上限即结束。</li>
     </ul>
     <h3>5. 管理权限</h3>
-    <p>金库可调用一次 <code>openTrading()</code>（见第 4 节）。在调用 <code>renounce()</code>（仅在开放交易后可调用）之前，还可以 (a) 暂停/恢复铸造，(b) 封禁/解封充当 BNAGENT 交易池的合约。<code>renounce()</code> 会永久移除这两项权限。铸造款与 LP 均由金库持有，流动性由团队手动添加。任何人都不能在价格表之外铸造、修改税率或接收方、冻结钱包。铸造在部署时处于暂停状态，由金库开启。</p>
+    <p>金库可调用一次 <code>openTrading()</code>（见第 4 节）。在调用 <code>renounce()</code> 之前，还可以 (a) 暂停/恢复铸造，(b) 封禁/解封充当 BNAGENT 交易池的合约。<code>renounce()</code> 会永久移除这两项权限。铸造款与 LP 均由金库持有，流动性由团队手动添加。任何人都不能在价格表之外铸造、修改税率或接收方、冻结钱包。铸造在部署时处于暂停状态，由金库开启。</p>
     <h3>6. 独立声明</h3>
     <p>BNAGENT 是独立社区项目，与币安、SPACE ID、PancakeSwap、Chainlink 均无关联，也未获其背书，仅使用其公开链上合约。</p>
   </div>
@@ -184,7 +185,7 @@
        mint(uint256 shares, address referrer, uint256 maxCost)        selector 0x836a1040
 BNB:   mintWithBnb(uint256 shares, address referrer, uint256 maxCost) selector 0xe38fd349
        value = maxCost = bnbQuote(shares)                             selector 0x68bce8cd
-Read:  quote(uint256) 0xed1bd76c · overview() 0x3a2056f1 · walletStatus(address) 0x4d6d0af8
+Read:  costOf(uint256) 0xfd326592 · overview() 0x3a2056f1 · walletStatus(address) 0x4d6d0af8
 referrer = zero address if none · max 10 shares per tx · add 20% to the gas estimate</pre>
 </section>
 
@@ -214,6 +215,11 @@ referrer = zero address if none · max 10 shares per tx · add 20% to the gas es
   <img src="assets/logo.svg" alt="BNAGENT" style="height:26px;opacity:.85"><br>
   <span class="en">© BNAGENT community. Independent, not affiliated with Binance. Source code: </span><span class="zh">© BNAGENT 社区。独立项目，与币安无关。源码：</span><a id="repoLink" href="https://github.com/">GitHub</a>
 </div></footer>
+<dialog id="walletModal" aria-labelledby="walletModalTitle">
+  <div class="mhead"><h2 id="walletModalTitle"><span class="en">Connect a wallet</span><span class="zh">连接钱包</span></h2><button class="mini" id="modalClose" aria-label="Close">✕</button></div>
+  <div id="modalBody"></div>
+  <div class="status bad" id="modalStatus"></div>
+</dialog>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>

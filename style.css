@@ -41,3 +41,19 @@ pre{background:#0c0b08;border:1px solid var(--line);border-radius:12px;padding:1
 footer{border-top:1px solid var(--line);padding:30px 0 50px;color:var(--muted);font-size:13px}
 .addr{word-break:break-all}
 @media (max-width:860px){.hero,.grid2,.grid3{grid-template-columns:1fr}h1{font-size:34px}nav{display:none}.facts{grid-template-columns:1fr 1fr}}
+.wbox{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:6px 12px;background:#0c0b08}
+.wbox .row:last-child{border-bottom:0}
+.okc{color:var(--ok)}.badc{color:var(--bad)}.warnc{color:var(--gold2)}
+.mini{white-space:nowrap;background:transparent;color:var(--gold2);border:1px solid var(--gold3);border-radius:8px;padding:3px 10px;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.wicon{width:22px;height:22px;border-radius:6px;vertical-align:middle;margin-right:6px}
+.wicon.ph{display:inline-grid;place-items:center;background:#2a2210;color:var(--gold2);font-size:12px;font-weight:700}
+dialog#walletModal{background:var(--panel2);color:var(--text);border:1px solid var(--gold3);border-radius:16px;padding:18px 20px;width:min(520px,94vw);max-height:90vh;overflow:auto}
+dialog#walletModal::backdrop{background:#000b}
+.mhead{display:flex;justify-content:space-between;align-items:center}.mhead h2{margin:0;font-size:20px}
+#walletModal h3{font-size:14px;margin:16px 0 8px;color:var(--gold)}
+.wlist{display:grid;gap:8px}
+.wbtn{display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:#0c0b08;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14px;text-decoration:none}
+.wbtn:hover{border-color:var(--gold3)}.wbtn em{margin-left:auto;font-style:normal;font-size:11px;color:var(--gold2);border:1px solid var(--gold3);border-radius:99px;padding:1px 8px}
+#agentPrompt{width:100%;background:#0c0b08;color:#e6dcc0;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;resize:vertical}
+pre.cmd{font-size:11px;white-space:pre-wrap;word-break:break-all;margin:8px 0}
