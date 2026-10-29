@@ -17,7 +17,7 @@
 <meta property="og:url" content="https://bnagent.onrender.com/whitepaper/">
 <meta property="og:image" content="https://bnagent.onrender.com/assets/og-v3.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../style.css?v=20261030a">
+<link rel="stylesheet" href="../style.css?v=20261030b">
 </head>
 <body class="lang-en wp">
 <div class="rails" aria-hidden="true"><div class="rail l"><span class="rd"></span><span class="rt"><span class="en">BNB SMART CHAIN · AGENT ID ONLY</span><span class="zh">BNB 智能链 · 仅限 AGENT ID</span></span><span class="rdots"><i></i><i></i><i></i></span></div><div class="rail r"><span class="rd"></span><span class="rt"><span class="en">BUILT FOR BINANCE AGENTIC WALLET · ONE AND ONLY</span><span class="zh">为币安 AGENTIC WALLET 打造 · 唯一</span></span><span class="rdots"><i></i><i></i><i></i></span></div></div>
@@ -109,7 +109,7 @@
 <script>
 (function () {
   var q = new URLSearchParams(location.search).get("lang");
-  var lang = q === "zh" || q === "en" ? q : (localStorage.getItem("bnagent-lang") || ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en"));
+  var lang = q === "zh" || q === "en" ? q : (localStorage.getItem("bnagent-lang") || "en");
   var btn = document.getElementById("langBtn");
   function set(l) { lang = l; try { localStorage.setItem("bnagent-lang", l); } catch (e) {} document.body.className = "lang-" + l + " wp"; document.documentElement.lang = l === "zh" ? "zh-CN" : "en"; btn.textContent = l === "zh" ? "English" : "中文"; }
   btn.onclick = function () { set(lang === "en" ? "zh" : "en"); };

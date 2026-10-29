@@ -16,7 +16,7 @@
   const AGENTIC = "com.binance.agentic-wallet";
   let awReady = false; // set once the Agentic Wallet code below is initialised
   const qsLang = new URLSearchParams(location.search).get("lang");
-  let lang = qsLang === "zh" || qsLang === "en" ? qsLang : localStorage.getItem("bnagent-lang") || ((navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en");
+  let lang = qsLang === "zh" || qsLang === "en" ? qsLang : localStorage.getItem("bnagent-lang") || "en";
   let pay = "usdt", state = null, referrer = null;
   // wallet session
   const W = { provider: null, name: "", icon: "", rdns: "", account: null, chainId: null, handle: null, agentOk: false, status: null, bnb: null, usdt: null, busy: false };
