@@ -639,7 +639,6 @@ baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
     finally { renderMintButton(); }
   };
 
-  if (C.repo) $("repoLink").href = C.repo;
   setLang(lang);
   loadRef();
   load();
