@@ -14,13 +14,15 @@
   token 0x568bf080000E07A017AF1C886158a5b6ad366591, pair 0x495369C007508D28a27Aaaeca18B3D8af8233037; deploy gas 8,798,720 (~0.00044 BNB).
 - Site: **https://bnagent.onrender.com/** (Render static site `bnagent`, publish dir `site/`, auto-deploy from main) + GitHub Pages mirror
   https://653366873iuhm-source.github.io/bnagent/ (gh-pages = copy of site/). New logo (tools/make_logo.py → site/assets: mark.svg, logo.svg,
-  favicon.svg + 32/180/512 png, og.svg/og.png, logo-preview.png), og/twitter tags, canonical = onrender.
+  bnagent-logo.svg (horizontal), favicon.svg + 32/180/512 png, og.svg/og.png, logo-preview.png), og/twitter tags, canonical = onrender.
 - **Binance Agentic Wallet (.ai Agent ID) QR connect** like jager.live: `server/index.mjs` proxy (Render web service `bnagent-api`,
   https://bnagent-api.onrender.com, free plan, Singapore) → Binance agent-wallet login/confirm/query/mpc-wallet list/contract-call preview/execute.
   Desktop: QR + pairing code; mobile: "Open in Binance App" link (the QR URL is a Binance universal link). Connected session acts as an EIP-1193
   provider, so the mint flow is unchanged (preview → user approves in the app → txHash). Headless tests 30/30.
 
 ## Not done / next
+- Render auto-deploy on push did NOT fire for either service (GitHub webhook apparently not wired for this repo): after each push trigger
+  `POST https://api.render.com/v1/services/<id>/deploys` (static `srv-dbhnqqqjnfac73afudj0`, api `srv-dbhnrnnlk1mc73d80lm0`) or fix the Render GitHub app access.
 - After deployment: set `ALLOW_TO=<mint address>` on the `bnagent-api` Render service (preview of mint calls is refused until then; USDT approve allowed),
   and fill site/config.js, llms.txt, agent.md.
 - Mainnet deployment: needs the user's explicit go-ahead.
