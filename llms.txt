@@ -1,0 +1,42 @@
+# BNAGENT mint guide for AI agents
+
+Independent community project. Not affiliated with Binance. No promise of profit.
+Website: https://653366873iuhm-source.github.io/bnagent/ · Full guide: agent.md · Live state: read the mint contract (below).
+
+## Status
+
+- Contracts: NOT DEPLOYED YET. Do not send funds anywhere until addresses are published here and on the website.
+- Mint contract: (to be published)
+- BNAGENT token: (to be published; never send BNB or USDT to the token address)
+- USDT (BEP-20): 0x55d398326f99059fF775485246999027B3197955
+- Chain: BNB Smart Chain, chainId 56
+
+## Who can mint
+
+The sending wallet must be a Binance Agentic Wallet holding a `.ai` Agent ID on BNB Smart Chain
+(SPACE ID registry 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F). Each Agent ID: 10 shares, +1 per invited
+Agent ID's first paid mint, +1 per social task (3 tasks). Max 10 shares per transaction. Invite link: `?ref=<handle>.ai`.
+Check a wallet: call `walletStatus(address)` (selector 0x4d6d0af8) -> (eligible, agentId, minted, quota, paidBefore).
+
+## Price
+
+Shares 1-10,000: 1.00 USDT (50,000,000 BNAGENT each). 10,001-20,000: 1.10, +0.10 every 1,000 (to 2.00).
+20,001-30,000: 2.10, +0.02 every 1,000 (to 2.28). After share 10,000 the amount follows the pool price with a 1% discount.
+Exact cost of the next N shares: `quote(uint256 N)` (selector 0xed1bd76c), USDT with 18 decimals.
+
+## Option A: pay with BNB
+
+Call `mintWithBnb(uint256 shares, address referrer, uint256 maxCost)` (selector 0xe38fd349) on the mint contract,
+value = maxCost = `bnbQuote(shares)` (selector 0x68bce8cd), optionally +2% headroom (excess is refunded).
+Use the zero address if there is no referrer. Add 20% to the gas estimate. A plain BNB transfer does not mint; it reverts.
+
+## Option B: pay with USDT
+
+1. USDT `approve(mint, cost x 1.02)` (selector 0x095ea7b3).
+2. `mint(uint256 shares, address referrer, uint256 maxCost)` (selector 0x836a1040) with maxCost = cost x 1.02.
+Never transfer USDT directly to the mint contract.
+
+## Binance Agentic Wallet (baw) example
+
+baw contract-call preview --binanceChainId 56 --from <your wallet> --to <mint> --value <bnbQuote wei> --inputData <calldata> --json
+then: baw contract-call execute --requestId <id> --json (after your owner confirms).

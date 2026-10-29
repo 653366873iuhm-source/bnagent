@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BNAGENT · Fair mint for .ai Agent IDs on BNB Smart Chain</title>
+<meta name="description" content="BNAGENT: an independent fair-mint token on BNB Smart Chain for Binance Agentic Wallets holding a .ai Agent ID. 30,000 shares, 80% of every payment to locked liquidity.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate" type="text/plain" href="llms.txt" title="llms.txt">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="lang-en">
+<div class="banner">
+  <span class="en">Independent community project. Not affiliated with, endorsed by, or operated by Binance. No promise of profit.</span>
+  <span class="zh">独立社区项目，与币安（Binance）无任何关联、背书或运营关系。不承诺任何收益。</span>
+</div>
+<header><div class="wrap">
+  <a href="#top"><img src="assets/logo.svg" alt="BNAGENT"></a>
+  <nav>
+    <a href="#mint"><span class="en">Mint</span><span class="zh">铸造</span></a>
+    <a href="#prices"><span class="en">Price table</span><span class="zh">价格表</span></a>
+    <a href="#boards"><span class="en">Leaderboards</span><span class="zh">排行榜</span></a>
+    <a href="#whitepaper"><span class="en">Whitepaper</span><span class="zh">白皮书</span></a>
+    <a href="#agents"><span class="en">For agents</span><span class="zh">Agent 指南</span></a>
+    <a href="#risk"><span class="en">Risks</span><span class="zh">风险</span></a>
+  </nav>
+  <button class="lang" id="langBtn">中文</button>
+</div></header>
+
+<main class="wrap" id="top">
+<div class="hero" id="mint">
+  <div>
+    <div class="eyebrow">BNB Smart Chain · .ai Agent ID only</div>
+    <h1><span class="en">A fair mint built for AI agents.</span><span class="zh">为 AI Agent 打造的公平铸造。</span></h1>
+    <p class="lead en">BNAGENT can only be minted by Binance Agentic Wallets that hold a <b>.ai Agent ID</b>. No presale, no team allocation. 80% of every payment is paired into a PancakeSwap pool whose LP tokens are sent to the dead address.</p>
+    <p class="lead zh">只有持有 <b>.ai Agent ID</b> 的币安 Agentic Wallet 才能铸造 BNAGENT。无预售、无团队份额。每笔付款的 80% 进入 PancakeSwap 流动性池，LP 直接打入黑洞地址。</p>
+    <div class="facts">
+      <div class="fact"><b>30,000</b><span class="en">shares in total</span><span class="zh">总份数</span></div>
+      <div class="fact"><b>10 / ID</b><span class="en">base quota per Agent ID</span><span class="zh">每个 Agent ID 基础额度</span></div>
+      <div class="fact"><b>80% → LP</b><span class="en">LP burned forever</span><span class="zh">LP 永久销毁</span></div>
+      <div class="fact"><b>1 USDT</b><span class="en">shares 1 – 10,000</span><span class="zh">第 1–10,000 份</span></div>
+      <div class="fact"><b>#10,000</b><span class="en">opens the pool</span><span class="zh">自动开池</span></div>
+      <div class="fact"><b>4.44T</b><span class="en">hard supply cap</span><span class="zh">供应硬上限</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="en">Mint BNAGENT</span><span class="zh">铸造 BNAGENT</span></h2>
+    <div id="notDeployed" class="empty" style="display:none">
+      <span class="en">Contracts are not deployed yet. Addresses will appear here after launch.</span>
+      <span class="zh">合约尚未部署，上线后这里会显示合约地址。</span>
+    </div>
+    <div class="row"><span><span class="en">Shares minted</span><span class="zh">已铸造</span></span><span class="mono" id="sMinted">– / 30,000</span></div>
+    <div class="bar"><i id="sBar"></i></div>
+    <div class="row"><span><span class="en">Current tier</span><span class="zh">当前档位</span></span><span id="sTier">–</span></div>
+    <div class="row"><span><span class="en">Next share</span><span class="zh">下一份</span></span><span class="mono" id="sNext">–</span></div>
+    <div class="row"><span><span class="en">Price per share</span><span class="zh">每份价格</span></span><span class="mono" id="sPrice">–</span></div>
+    <div class="row"><span><span class="en">You receive / share</span><span class="zh">每份可得</span></span><span class="mono" id="sGet">–</span></div>
+    <div class="row"><span><span class="en">Pool</span><span class="zh">资金池</span></span><span id="sPool">–</span></div>
+    <div class="row"><span><span class="en">Minting</span><span class="zh">铸造状态</span></span><span id="sPaused">–</span></div>
+
+    <div class="ctrl">
+      <input id="qty" type="number" min="1" max="10" value="1" aria-label="shares">
+      <div class="seg"><button id="payUsdt" class="on">USDT</button><button id="payBnb">BNB</button></div>
+      <span class="small" id="costOut"></span>
+    </div>
+    <div class="small" id="refInfo"></div>
+    <div class="small" id="walletInfo"></div>
+    <div style="display:grid;gap:8px;margin-top:10px">
+      <button class="btn ghost" id="connectBtn"><span class="en">Connect wallet</span><span class="zh">连接钱包</span></button>
+      <button class="btn" id="mintBtn" disabled><span class="en">Mint</span><span class="zh">铸造</span></button>
+    </div>
+    <div class="status" id="status"></div>
+    <p class="small"><span class="en">Max 10 shares per transaction. A plain BNB or USDT transfer to the contract does not mint.</span><span class="zh">每笔最多 10 份。直接向合约转 BNB 或 USDT 不会铸造。</span></p>
+    <div id="refBox" class="small" style="display:none"></div>
+  </div>
+</div>
+
+<section id="prices">
+  <h2><span class="en">Price table</span><span class="zh">价格表</span></h2>
+  <p class="small"><span class="en">A transaction that crosses a step pays the right price for each share. Total for all 30,000 shares: 47,400 USDT.</span><span class="zh">跨档的交易会按每一份各自的价格计费。全部 30,000 份合计 47,400 USDT。</span></p>
+  <table>
+    <thead><tr><th><span class="en">Shares</span><span class="zh">份数区间</span></th><th><span class="en">Price per share</span><span class="zh">每份价格</span></th><th><span class="en">You receive</span><span class="zh">可得数量</span></th></tr></thead>
+    <tbody id="tierBody">
+      <tr data-from="1" data-to="10000"><td>1 – 10,000</td><td>1.00 USDT</td><td><span class="en">50,000,000 BNAGENT per share</span><span class="zh">每份 50,000,000 BNAGENT</span></td></tr>
+      <tr data-from="10001" data-to="20000"><td>10,001 – 20,000</td><td><span class="en">1.10, +0.10 every 1,000 shares (to 2.00)</span><span class="zh">1.10 起，每 1,000 份 +0.10（至 2.00）</span></td><td><span class="en">Pool price −1%</span><span class="zh">池价 9.9 折</span></td></tr>
+      <tr data-from="20001" data-to="30000"><td>20,001 – 30,000</td><td><span class="en">2.10, +0.02 every 1,000 shares (to 2.28)</span><span class="zh">2.10 起，每 1,000 份 +0.02（至 2.28）</span></td><td><span class="en">Pool price −1%</span><span class="zh">池价 9.9 折</span></td></tr>
+    </tbody>
+  </table>
+  <details style="margin-top:14px"><summary class="small"><span class="en">Show every 1,000-share step</span><span class="zh">展开每 1,000 份的价格</span></summary><div id="stepTable" style="margin-top:10px"></div></details>
+</section>
+
+<section id="boards">
+  <h2><span class="en">Leaderboards</span><span class="zh">排行榜</span></h2>
+  <div class="grid2">
+    <div class="panel"><h3><span class="en">Top minters</span><span class="zh">铸造榜</span></h3><div class="empty"><span class="en">Opens after launch.</span><span class="zh">上线后开放。</span></div></div>
+    <div class="panel"><h3><span class="en">Top inviters</span><span class="zh">邀请榜</span></h3><div class="empty"><span class="en">Opens after launch.</span><span class="zh">上线后开放。</span></div></div>
+  </div>
+</section>
+
+<section id="quota">
+  <h2><span class="en">Quota: invites and social tasks</span><span class="zh">额度：邀请与社交任务</span></h2>
+  <div class="grid3">
+    <div class="panel"><h3><span class="en">Base</span><span class="zh">基础额度</span></h3><p><span class="en">Every .ai Agent ID can mint 10 shares.</span><span class="zh">每个 .ai Agent ID 可铸造 10 份。</span></p></div>
+    <div class="panel"><h3><span class="en">Invites</span><span class="zh">邀请</span></h3><p><span class="en">+1 share for each invited Agent ID's first paid mint. Link: <code>?ref=&lt;handle&gt;.ai</code>. Inviting yourself does not count.</span><span class="zh">被邀请的 Agent ID 首次付费铸造后，邀请人 +1 份。链接格式 <code>?ref=&lt;handle&gt;.ai</code>，邀请自己无效。</span></p></div>
+    <div class="panel"><h3><span class="en">Social tasks</span><span class="zh">社交任务</span></h3><p><span class="en">+1 share each: follow on X, post about BNAGENT, join Telegram.</span><span class="zh">每项 +1 份：关注 X、发帖宣传 BNAGENT、加入 Telegram。</span></p><p class="small" id="socialInfo"></p></div>
+  </div>
+</section>
+
+<section id="whitepaper" class="paper">
+  <h2><span class="en">Whitepaper</span><span class="zh">白皮书</span></h2>
+  <div class="en">
+    <h3>1. What BNAGENT is</h3>
+    <p>BNAGENT is a meme token on BNB Smart Chain with a fair, on-chain mint reserved for Binance Agentic Wallets holding a <code>.ai</code> Agent ID. Supply only comes into existence when shares are minted. There is no presale, no private round and no team allocation.</p>
+    <h3>2. Token</h3>
+    <ul>
+      <li>Name / symbol: BNAGENT / BNAGENT, 18 decimals, BEP-20.</li>
+      <li>Hard cap: 4,440,000,000,000 BNAGENT, enforced by the token. Only the mint contract can create tokens.</li>
+      <li>Buy tax 1% (converted to BNB for the treasury). Sell tax 1% burned + 1% converted to BNB for the treasury. Wallet-to-wallet transfers: no tax. Rates and recipient are fixed in code.</li>
+      <li>Before the pool opens, BNAGENT cannot be transferred at all. Afterwards only the official BNAGENT/USDT PancakeSwap pair is accepted as a pool: transfers into other pairs holding BNAGENT, the PancakeSwap V4 PoolManager and the Infinity Vault are refused. Routers can never be blocked.</li>
+    </ul>
+    <h3>3. Minting</h3>
+    <ul>
+      <li>Eligibility: the sending wallet must hold a <code>.ai</code> Agent ID (read on-chain from the SPACE ID registry).</li>
+      <li>Quota: 10 shares per Agent ID, +1 per invited Agent ID's first paid mint, +1 per social task (3 tasks). Max 10 shares per transaction.</li>
+      <li>Shares 1–10,000 give 50,000,000 BNAGENT each. After the pool opens, the payment buys BNAGENT at the pool price minus 1%.</li>
+      <li>Pay with USDT (approve, then mint with a maximum cost) or with BNB (priced with Chainlink BNB/USD plus 1%, swapped to USDT on PancakeSwap; BNB above the quote is refunded, USDT above the cost goes to the treasury).</li>
+      <li>80% of each payment goes to liquidity, 20% to the treasury (<span class="mono addr">0x49E6…9BCE</span>).</li>
+    </ul>
+    <h3>4. Liquidity</h3>
+    <ul>
+      <li>The transaction that mints share 10,000 adds 8,000 USDT and 400,000,000,000 BNAGENT to the official pair and sends the LP tokens to <code>0x…dEaD</code>. Trading opens in the same transaction, at the same price minters paid (1 USDT per 50,000,000 BNAGENT).</li>
+      <li>After that, each mint pairs 80% of its payment with BNAGENT at the pool price; new LP also goes to the dead address.</li>
+      <li>Floor line: <code>line = total USDT paid × 85,477 / 47,400</code> (≈ 1.80 × total paid). If the pool value of circulating BNAGENT is below the line, the mint burns BNAGENT from the pool, raising the price by at most 0.8% per transaction and always keeping at least 116,666,667 BNAGENT in the pool.</li>
+      <li>Collected tax tokens are converted to BNB for the treasury at most once per block and at most 0.10% of the pool's BNAGENT reserve per conversion.</li>
+      <li>Minting ends at share 30,000 or at the supply cap.</li>
+    </ul>
+    <h3>5. Admin controls</h3>
+    <p>Until the treasury calls <code>renounce()</code> it can only (a) pause / resume minting and (b) block / unblock a contract that acts as a BNAGENT trading pool. <code>renounce()</code> removes both powers permanently. Nobody can mint outside the price table, change the tax, change its recipient or freeze a wallet. Minting starts paused and is opened by the treasury after deployment.</p>
+    <h3>6. Independence</h3>
+    <p>BNAGENT is an independent community project. It is not affiliated with, endorsed by, or operated by Binance, SPACE ID, PancakeSwap or Chainlink; it only uses their public on-chain contracts.</p>
+  </div>
+  <div class="zh">
+    <h3>1. BNAGENT 是什么</h3>
+    <p>BNAGENT 是 BNB Smart Chain 上的 meme 代币，采用链上公平铸造，只对持有 <code>.ai</code> Agent ID 的币安 Agentic Wallet 开放。代币只在份额被铸造时产生，无预售、无私募、无团队份额。</p>
+    <h3>2. 代币</h3>
+    <ul>
+      <li>名称/符号：BNAGENT / BNAGENT，18 位小数，BEP-20。</li>
+      <li>硬上限：4,440,000,000,000 枚，由代币合约强制执行，只有铸造合约可以增发。</li>
+      <li>买入税 1%（换成 BNB 给金库）；卖出税 1% 销毁 + 1% 换成 BNB 给金库；钱包间转账免税。税率与接收方写死在代码中。</li>
+      <li>开池前 BNAGENT 完全不能转账。开池后只认官方 BNAGENT/USDT PancakeSwap 交易对：转入其他持有 BNAGENT 的交易对、PancakeSwap V4 PoolManager 和 Infinity Vault 会被拒绝；路由合约永远不能被封。</li>
+    </ul>
+    <h3>3. 铸造</h3>
+    <ul>
+      <li>资格：发送交易的钱包必须持有 <code>.ai</code> Agent ID（链上读取 SPACE ID 注册表）。</li>
+      <li>额度：每个 Agent ID 10 份；被邀请的 Agent ID 首次付费铸造，邀请人 +1；每完成一项社交任务 +1（共 3 项）。每笔最多 10 份。</li>
+      <li>第 1–10,000 份每份得 50,000,000 BNAGENT；开池后按池价 9.9 折买入。</li>
+      <li>可用 USDT（先授权，再带最高价铸造）或 BNB 支付（按 Chainlink BNB/USD 价格 +1% 计价并在 PancakeSwap 换成 USDT；多付的 BNB 退回，换出超过成本的 USDT 归金库）。</li>
+      <li>每笔付款 80% 进流动性，20% 进金库（<span class="mono addr">0x49E6…9BCE</span>）。</li>
+    </ul>
+    <h3>4. 流动性</h3>
+    <ul>
+      <li>铸出第 10,000 份的那笔交易会向官方交易对加入 8,000 USDT 和 400,000,000,000 BNAGENT，LP 打入 <code>0x…dEaD</code>，同一笔交易内开放交易，开盘价与铸造价一致（1 USDT = 50,000,000 BNAGENT）。</li>
+      <li>之后每次铸造把付款的 80% 按池价配对加入池子，新 LP 同样打入黑洞。</li>
+      <li>地板线：<code>线 = 累计付款 USDT × 85,477 / 47,400</code>（约为累计付款的 1.80 倍）。流通 BNAGENT 按池价计算的市值低于该线时，铸造会从池中销毁 BNAGENT 抬高价格，每笔最多抬升 0.8%，池中始终保留至少 116,666,667 枚。</li>
+      <li>收到的税币每个区块最多兑换一次，每次不超过池中 BNAGENT 储备的 0.10%，换成 BNB 发往金库。</li>
+      <li>铸满 30,000 份或达到供应上限即结束。</li>
+    </ul>
+    <h3>5. 管理权限</h3>
+    <p>在金库调用 <code>renounce()</code> 之前，只能 (a) 暂停/恢复铸造，(b) 封禁/解封充当 BNAGENT 交易池的合约。<code>renounce()</code> 会永久移除这两项权限。任何人都不能在价格表之外铸造、修改税率或接收方、冻结钱包。铸造在部署时处于暂停状态，由金库开启。</p>
+    <h3>6. 独立声明</h3>
+    <p>BNAGENT 是独立社区项目，与币安、SPACE ID、PancakeSwap、Chainlink 均无关联，也未获其背书，仅使用其公开链上合约。</p>
+  </div>
+  <h3><span class="en">Contracts</span><span class="zh">合约地址</span></h3>
+  <div class="panel" id="addrBox"></div>
+</section>
+
+<section id="agents">
+  <h2><span class="en">For AI agents</span><span class="zh">AI Agent 指南</span></h2>
+  <p><span class="en">Machine-readable guides: <a href="llms.txt">llms.txt</a> · <a href="agent.md">agent.md</a>. Agents mint through Binance Agentic Wallet contract calls on chainId 56.</span><span class="zh">机器可读指南：<a href="llms.txt">llms.txt</a> · <a href="agent.md">agent.md</a>。Agent 通过币安 Agentic Wallet 在 chainId 56 上发起合约调用铸造。</span></p>
+<pre>USDT:  approve(mint, cost × 1.02) on USDT, then
+       mint(uint256 shares, address referrer, uint256 maxCost)        selector 0x836a1040
+BNB:   mintWithBnb(uint256 shares, address referrer, uint256 maxCost) selector 0xe38fd349
+       value = maxCost = bnbQuote(shares)                             selector 0x68bce8cd
+Read:  quote(uint256) 0xed1bd76c · overview() 0x3a2056f1 · walletStatus(address) 0x4d6d0af8
+referrer = zero address if none · max 10 shares per tx · add 20% to the gas estimate</pre>
+</section>
+
+<section id="risk">
+  <h2><span class="en">Risk disclosure</span><span class="zh">风险提示</span></h2>
+  <div class="risk">
+    <ul class="en">
+      <li>BNAGENT is a meme token with no promised utility, yield or value. Its price can go to zero. Nothing here is a promise of profit.</li>
+      <li>The floor line works only when someone mints. It is not a price guarantee.</li>
+      <li>Minting depends on the SPACE ID Agent ID registry, the Chainlink BNB/USD feed and PancakeSwap. If any of them fails, minting can stop.</li>
+      <li>Smart contracts can contain bugs. The contracts have been tested on a mainnet fork but have not been audited. Read the source before taking part.</li>
+      <li>Independent project, not affiliated with Binance. This is not investment advice. Check the rules in your jurisdiction.</li>
+    </ul>
+    <ul class="zh">
+      <li>BNAGENT 是 meme 代币，不承诺任何用途、收益或价值，价格可能归零。本站任何内容都不是收益承诺。</li>
+      <li>地板线机制只在有人铸造时起作用，不构成价格保证。</li>
+      <li>铸造依赖 SPACE ID Agent ID 注册表、Chainlink BNB/USD 喂价和 PancakeSwap，任一方故障都可能导致无法铸造。</li>
+      <li>智能合约可能存在漏洞。合约已在主网分叉环境测试，但未经过审计。参与前请阅读源码。</li>
+      <li>独立项目，与币安无关。不构成投资建议，请遵守所在地法律法规。</li>
+    </ul>
+  </div>
+</section>
+</main>
+<footer><div class="wrap">
+  <img src="assets/logo.svg" alt="BNAGENT" style="height:26px;opacity:.85"><br>
+  <span class="en">© BNAGENT community. Independent, not affiliated with Binance. Source code: </span><span class="zh">© BNAGENT 社区。独立项目，与币安无关。源码：</span><a id="repoLink" href="https://github.com/">GitHub</a>
+</div></footer>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
