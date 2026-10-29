@@ -21,7 +21,8 @@ quote(uint256 shares) -> USDT cost (18 decimals)      selector 0xed1bd76c
 bnbQuote(uint256 shares) -> BNB cost (wei)             selector 0x68bce8cd
 ```
 
-Minting is only possible when `paused == false`.
+Minting is only possible when `paused == false`. `open` = trading opened by the treasury (`openTrading()`);
+`usdtReserve`/`tokenReserve` are only filled after that.
 
 ## 3. Mint
 
@@ -44,5 +45,14 @@ signature (domain `BnagentMint`, version `1`, chainId 56); the wallet then calls
 ## 5. Safety rules
 
 - Never send BNB or USDT by plain transfer to the mint or token contract.
-- Before the pool opens (share 10,000) BNAGENT cannot be transferred.
+- BNAGENT cannot be transferred until the treasury calls `openTrading()` (possible only after share 10,000 is sold
+  and the team has added liquidity to the official BNAGENT/USDT pair).
+- Until trading opens each share gives 50,000,000 BNAGENT (price from the table); afterwards pool price −1%.
 - Taxes: buy 1%, sell 1% burn + 1% treasury, wallet transfers 0%.
+
+## 6. Funds and liquidity
+
+- 100% of each mint payment goes directly to the project treasury `0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE`
+  in the same transaction (USDT as USDT, BNB as BNB). The mint contract keeps nothing.
+- With share 10,000 the mint contract mints 400,000,000,000 BNAGENT to the treasury. The team adds the PancakeSwap
+  liquidity manually; the LP tokens stay with the treasury (not locked, not burned).

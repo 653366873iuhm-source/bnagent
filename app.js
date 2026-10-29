@@ -80,12 +80,12 @@
       $("sPrice").textContent = s.nextCents ? (s.nextCents / 100).toFixed(2) + " USDT" : "–";
       if (!s.open) $("sGet").textContent = "50,000,000 BNAGENT";
       else if (s.u > 0n) $("sGet").textContent = "≈ " + fmt((BigInt(s.nextCents) * 10n ** 16n * s.t * 10000n) / (s.u * 9900n), 0) + " BNAGENT";
-      $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
+      $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : s.minted < 10000 ? T(`Team adds LP after share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份售出后由团队加池（还差 ${(10000 - s.minted).toLocaleString()} 份）`) : T("Waiting for the team to add LP and open trading", "等待团队加池并开放交易");
       $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : T("Open", "开放中");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", next >= +tr.dataset.from && next <= +tr.dataset.to));
     } else {
       $("sTier").textContent = tierName(1); $("sNext").textContent = "#1"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
-      $("sPool").textContent = T("Opens at share 10,000", "第 10,000 份时开池"); $("sPaused").textContent = deployed ? "–" : T("Not deployed", "未部署");
+      $("sPool").textContent = T("Team adds LP after share 10,000", "第 10,000 份售出后由团队加池"); $("sPaused").textContent = deployed ? "–" : T("Not deployed", "未部署");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", +tr.dataset.from === 1));
     }
     updateCost();
