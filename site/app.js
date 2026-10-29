@@ -153,8 +153,15 @@
       $("sMinted").textContent = m.toLocaleString();
       $("hMinted").textContent = m.toLocaleString();
       document.querySelectorAll("#sTotal .tv").forEach((e) => (e.textContent = m.toLocaleString()));
-      $("sBar").style.width = (m / TOTAL * 100).toFixed(3) + "%"; // burned + minted, one gold bar
-      $("sLegend").textContent = `Burned + Minted ${m.toLocaleString()} / ${TOTAL.toLocaleString()}`;
+      // Staged bar (user, 2026-10-30): stage 1 fills to 10,000 (pool opens), then switches to the next stage target.
+      // Stages follow the price-table segments: 10,000 / 20,000 / 100,000 / 1,000,000 / 100,000,000.
+      const STAGES = [10000, 20000, 100000, 1000000, TOTAL];
+      let si = STAGES.findIndex((e) => m < e); if (si < 0) si = STAGES.length - 1;
+      const goal = STAGES[si];
+      $("sGoal").textContent = " / " + goal.toLocaleString();
+      $("sBar").style.width = Math.min(100, (m / goal) * 100).toFixed(3) + "%"; // burned + minted, one gold bar
+      $("sLegend").textContent = `Burned + Minted ${m.toLocaleString()} / ${goal.toLocaleString()}`;
+      $("sStage").innerHTML = `<span class="en">Stage ${si + 1} / ${STAGES.length}</span><span class="zh">第 ${si + 1} 阶段 / 共 ${STAGES.length} 阶段</span>`;
     };
     const dl = (d) => new Date(d * 1000).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     if (s) {

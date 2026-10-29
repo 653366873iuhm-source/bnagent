@@ -157,7 +157,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     const og = await pg.getAttribute('meta[property="og:image"]', 'content');
     ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og-v3.png', og);
     const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
-    ok('supply: SUPPLY, N / 100,000,000 (N >= 1,100), one gold bar, one legend', sup.label === 'SUPPLY' && /^(\d{1,3}(,\d{3})*) \/ 100,000,000$/.test(sup.big) && +sup.big.split(' ')[0].replace(/,/g, '') >= 1100 && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted ' + sup.big, JSON.stringify(sup));
+    ok('supply: SUPPLY, staged N / 10,000 in stage 1 (N >= 1,100), one gold bar, one legend', sup.label === 'SUPPLY' && /^(\d{1,3}(,\d{3})*) \/ (10,000|20,000|100,000|1,000,000|100,000,000)$/.test(sup.big) && +sup.big.split(' ')[0].replace(/,/g, '') >= 1100 && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted ' + sup.big, JSON.stringify(sup));
     const wp = await pg.textContent('#whitepaper');
     ok('docs: whitepaper has no admin section and no long 30-day section', !/Admin controls/.test(wp) && !/The 30-day rule/.test(wp));
     const page = await pg.textContent('body'); const foot = await pg.textContent('footer');
