@@ -47,7 +47,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('no-wallet: mint button asks to connect (contracts deployed)', (await pg.textContent('#mintBtn')).includes('连接钱包后铸造'));
     ok('no-wallet: addresses card shows mint + treasury', (await pg.textContent('#addrBox')).includes(MINT) && (await pg.textContent('#addrBox')).includes(TREASURY));
     await pg.waitForFunction(() => /\d/.test(document.getElementById('sMinted').textContent) && document.getElementById('sPaused').textContent !== '–', null, { timeout: 20000 }).catch(() => {});
-    ok('no-wallet: live supply 1,100 / 30,000 and paused state', (await pg.textContent('#sMinted')).trim() === '1,100' && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
+    ok('no-wallet: live supply >= 1,100 / 30,000 and mint state', +(await pg.textContent('#sMinted')).trim().replace(/,/g, '') >= 1100 && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
     await pg.click('#connectBtn');
     const body = await pg.textContent('#modalBody');
     ok('no-wallet: chooser opens and says no wallet detected', body.includes('未检测到浏览器钱包'));
@@ -157,11 +157,12 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     const og = await pg.getAttribute('meta[property="og:image"]', 'content');
     ok('brand: og:image on bnagent.onrender.com', og === 'https://bnagent.onrender.com/assets/og-v3.png', og);
     const sup = await pg.evaluate(() => ({ label: document.querySelector('.slabel').textContent, big: document.querySelector('.sbig').textContent.replace(/\s+/g, ' ').trim(), bars: document.querySelectorAll('.supply .bar i').length, legend: document.getElementById('sLegend').textContent, legends: document.querySelectorAll('.slegend').length }));
-    ok('supply: SUPPLY, 1,100 / 30,000, one gold bar, one legend', sup.label === 'SUPPLY' && sup.big === '1,100 / 30,000' && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted 1,100 / 30,000', JSON.stringify(sup));
+    ok('supply: SUPPLY, N / 30,000 (N >= 1,100), one gold bar, one legend', sup.label === 'SUPPLY' && /^(\d{1,3}(,\d{3})*) \/ 30,000$/.test(sup.big) && +sup.big.split(' ')[0].replace(/,/g, '') >= 1100 && sup.bars === 1 && sup.legends === 1 && sup.legend === 'Burned + Minted ' + sup.big, JSON.stringify(sup));
     const wp = await pg.textContent('#whitepaper');
     ok('docs: whitepaper has no admin section and no long 30-day section', !/Admin controls/.test(wp) && !/The 30-day rule/.test(wp));
     const page = await pg.textContent('body'); const foot = await pg.textContent('footer');
     ok('slim: no GitHub link, no burned-at-deploy lead sentence, no risk box, footer 30-day + not-affiliated line', !/GitHub/.test(page) && !(await pg.$('#repoLink')) && !(await pg.$('#risk')) && !/Shares #1–#1,100 are burned at deploy and never sold/.test(page) && /team may withdraw the parked 80%\. Independent project, not affiliated with Binance\./.test(foot), foot);
+    ok('slim: no 30-day status rows or 30-day lead sentence (zh+en)', !(await pg.$('#sDeadline')) && !(await pg.$('#sWithdrawn')) && !/30 天期限|团队已提取|若开放铸造后 30 天内|backed only by/.test(page + await pg.content()), '');
     const xl = await pg.$$eval('a[href="https://x.com/bnAgent_"]', l => l.map(e => e.id));
     ok('social: X link https://x.com/bnAgent_ in header and footer, no Telegram on the page', xl.includes('xLinkHead') && xl.includes('xLinkFoot') && !/telegram|t\.me\//i.test(await pg.content()), JSON.stringify(xl));
     await ctx.close();

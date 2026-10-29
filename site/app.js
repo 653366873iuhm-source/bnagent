@@ -149,17 +149,13 @@
       else if (s.u > 0n) $("sGet").textContent = "≈ " + fmt((BigInt(s.nextCents) * 10n ** 16n * s.t * 10000n) / (s.u * 9900n), 0) + " BNAGENT";
       $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens automatically at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时自动开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
       $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
-      $("sDeadline").textContent = s.open ? T("Not applicable: pool is open", "已开池，不再适用") : s.deadline ? dl(s.deadline) + (Date.now() / 1000 > s.deadline ? T(" (passed)", "（已过）") : "") : T("30 days after minting opens", "开放铸造后 30 天");
-      $("sWithdrawn").textContent = s.withdrawals ? T(`${fmt(s.withdrawn)} USDT in ${s.withdrawals} withdrawal${s.withdrawals > 1 ? "s" : ""}; pool would open with ${fmt(s.parkedU || 0n)} USDT parked since`, `已提取 ${s.withdrawals} 次，共 ${fmt(s.withdrawn)} USDT；开池将只用此后留存的 ${fmt(s.parkedU || 0n)} USDT`) : s.withdrawable ? T("None yet (allowed now: deadline passed)", "暂无（期限已过，团队现在可以提取）") : T("None", "无");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", next >= +tr.dataset.from && next <= +tr.dataset.to));
     } else {
-      $("sWithdrawn").textContent = T("None (only possible after day 30)", "无（仅 30 天后可能发生）");
       progress(BURNED);
       if (deployed) { $("sMinted").textContent = "–"; $("sLegend").textContent = `Burned + Minted – / ${TOTAL.toLocaleString()}`; }
       $("sTier").textContent = tierName(1101); $("sNext").textContent = "#1,101"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
       $("sPool").textContent = T("Opens automatically at share 10,000", "第 10,000 份时自动开池");
       $("sPaused").textContent = deployed ? "–" : T("Contracts not deployed", "合约未部署");
-      $("sDeadline").textContent = T("30 days after minting opens", "开放铸造后 30 天");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", +tr.dataset.from === 1101));
     }
     updateCost();
