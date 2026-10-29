@@ -56,13 +56,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('no-wallet: live supply >= 1,100 / 100,000,000 and mint state', +(await pg.textContent('#sMinted')).trim().replace(/,/g, '') >= 1100 && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
     await pg.click('#connectBtn');
     const body = await pg.textContent('#modalBody');
-    ok('no-wallet: chooser opens and says no wallet detected', body.includes('未检测到浏览器钱包'));
-    ok('no-wallet: chooser has mobile deep links', (await pg.$$('#modalBody a.wbtn')).length === 3);
-    ok('no-wallet: chooser has agent prompt with llms.txt', (await pg.inputValue('#agentPrompt')).includes('llms.txt'));
-    await pg.fill('#watchAddr', ADDR); await pg.click('#watchBtn');
-    await pg.waitForFunction(() => /allin168|无 \.ai|失败/.test(document.getElementById('watchOut').textContent), null, { timeout: 20000 }).catch(() => {});
-    const w = await pg.textContent('#watchOut');
-    ok('no-wallet: read-only Agent ID check works', w.includes('allin168.ai') && w.includes('已铸'), w);
+    ok('chooser shows only the Binance QR connect (no browser wallets, deep links, agent prompt)', (await pg.$$('#modalBody .wbtn')).length === 1 && !!(await pg.$('#bnQrBtn')) && !body.includes('浏览器钱包') && !(await pg.$('#agentPrompt')) && !(await pg.$('#watchAddr')), body);
     await pg.screenshot({ path: __dirname + '/shot-nowallet-modal.png', fullPage: false });
     await ctx.close();
   }
@@ -72,9 +66,8 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push(String(e)));
     await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
     await pg.click('#connectBtn');
-    const names = await pg.$$eval('#modalBody .wbtn[data-i]', els => els.map(e => e.textContent));
-    ok('mock: chooser lists the EIP-6963 wallet once (deduped with window.ethereum)', names.length === 1 && names[0].includes('Mock Wallet'), JSON.stringify(names));
-    await pg.click('#modalBody .wbtn[data-i="0"]');
+    ok('mock: chooser still shows only the Binance QR connect', (await pg.$$('#modalBody .wbtn')).length === 1);
+    await pg.evaluate(() => window.__bnTestConnect(0));
     await pg.waitForFunction(() => /allin168\.ai/.test(document.getElementById('walletBox').textContent), null, { timeout: 20000 }).catch(() => {});
     const wb = await pg.textContent('#walletBox');
     const calls = await pg.evaluate(() => window.__calls);
@@ -202,7 +195,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     await pg.click('#lbBoards button[data-b="mints"]'); await pg.click('#lbPeriod button[data-p="week"]');
     ok('leaderboard: Mints/Week shows Shares unit (empty message on the mock)', (await pg.textContent('#lbUnit')) === 'Shares' && (LOCAL ? (await pg.textContent('#lbList')).includes('Nobody on this board yet.') : true) && /UTC week from Monday \d{4}-/.test(await pg.textContent('#lbSub')));
     // connect
-    await pg.click('#connectBtn'); await pg.click('#modalBody .wbtn[data-i="0"]');
+    await pg.evaluate(() => window.__bnTestConnect(0));
     await pg.waitForFunction(() => /minted \d+ \/ quota/.test(document.getElementById('walletBox').textContent), null, { timeout: 25000 }).catch(() => {});
     await pg.waitForFunction(() => document.querySelectorAll('#qtyGroup button').length === 10, null, { timeout: 10000 }).catch(() => {});
     const q = await pg.evaluate(() => ({ vis: getComputedStyle(document.getElementById('mintCtrl')).display !== 'none', n: document.querySelectorAll('#qtyGroup button').length, checked: [...document.querySelectorAll('#qtyGroup button')].filter(b => b.getAttribute('aria-checked') === 'true').map(b => b.textContent), dis: [...document.querySelectorAll('#qtyGroup button')].filter(b => b.disabled).length, pay: [...document.querySelectorAll('#payUsdt,#payBnb')].map(b => b.getAttribute('role')) }));
@@ -306,7 +299,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     const lb1 = await pg.evaluate(() => { const li = document.querySelector('#lbList li.lbrow'); return li ? { dia: !!li.querySelector('.dia'), x: (li.querySelector('.nm a') || {}).href || null, color: (li.querySelector('.dia') || {}).style ? li.querySelector('.dia').style.background : '' } : null; });
     ok('leaderboard: colored border diamond per row, bound X links to x.com', !!lb1 && lb1.dia && (!LOCAL || (lb1.x === 'https://x.com/allin_x' && /240, 185, 11|f0b90b/i.test(lb1.color))), JSON.stringify(lb1));
     // connect -> Agent ID verified, pass share block, Bind X flow
-    await pg.click('#connectBtn'); await pg.click('#modalBody .wbtn[data-i="0"]');
+    await pg.evaluate(() => window.__bnTestConnect(0));
     await pg.waitForFunction(() => /Agent ID verified/.test(document.getElementById('pLine').textContent), null, { timeout: 25000 }).catch(() => {});
     if (LOCAL) await pg.waitForFunction(() => /pts/.test(document.getElementById('pBadges').textContent), null, { timeout: 10000 }).catch(() => {});
     const pid = await pg.evaluate(() => ({ name: document.getElementById('pName').textContent, line: document.getElementById('pLine').textContent, badges: [...document.getElementById('pBadges').childNodes].map(e => e.className === 'bdg' ? e.lastChild.textContent : e.textContent).join(' ') }));

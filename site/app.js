@@ -579,34 +579,15 @@
     if ($("qrRetry")) $("qrRetry").onclick = startQr;
   }
   function renderModal() {
-    const list = walletList();
+    // Only the Binance QR connect is shown (user, 2026-10-30: other options confuse visitors).
     let h = `<h3>${T("Binance Wallet / Agent ID", "币安钱包 / Agent ID")}</h3>` +
       `<div class="wlist"><button class="wbtn bnqr" id="bnQrBtn" ${W.busy ? "disabled" : ""}><img class="wicon" src="assets/mark.svg" alt=""><span>${T("Binance Agentic Wallet (.ai Agent ID)", "币安 Agentic Wallet（.ai Agent ID）")}</span><em>${isMobile() ? T("open app", "打开 App") : T("scan QR", "扫码")}</em></button></div><div id="qrBox"></div>`;
-    h += `<h3>${T("Browser wallets", "浏览器钱包")}</h3>`;
-    if (list.length) {
-      h += `<div class="wlist">` + list.map((w, i) => `<button class="wbtn" data-i="${i}" ${W.busy ? "disabled" : ""}>${w.icon && /^data:image\//.test(w.icon) ? `<img class="wicon" src="${esc(w.icon)}" alt="">` : `<span class="wicon ph">${esc(w.name[0] || "W")}</span>`}<span>${esc(w.name)}</span>${/binance/i.test(w.rdns + w.name) ? `<em>${T("recommended", "推荐")}</em>` : ""}</button>`).join("") + `</div>`;
-    } else {
-      h += `<p class="small">${T("No browser wallet detected. Install one, or open this page inside a wallet app:", "未检测到浏览器钱包。请安装钱包插件，或在钱包 App 内打开本页：")} <a href="https://www.binance.com/en/web3wallet" target="_blank" rel="noopener">Binance Wallet</a> · <a href="https://metamask.io/download/" target="_blank" rel="noopener">MetaMask</a> · <a href="https://www.okx.com/web3" target="_blank" rel="noopener">OKX Wallet</a></p>`;
-    }
-    h += `<h3>${T("On your phone", "手机钱包")}</h3><div class="wlist">` +
-      deepLinks().map((d) => `<a class="wbtn" href="${esc(d.href)}" rel="noopener"><span class="wicon ph">${d.name[0]}</span><span>${T("Open in", "在")} ${d.name}${T("", " 中打开")}</span></a>`).join("") +
-      `<button class="wbtn" id="copyUrl"><span class="wicon ph">B</span><span>${T("Binance App: copy link, then Wallet → Discover → paste", "币安 App：复制链接，到 钱包 → 发现 粘贴打开")}</span></button></div>`;
-    h += `<h3>${T("Binance Agentic Wallet (AI agent)", "币安 Agentic Wallet（AI Agent）")}</h3>` +
-      `<p class="small">${T("The Agentic Wallet is driven by your AI agent, not by a browser extension. Give your agent this prompt (it points to our llms.txt / agent.md):", "Agentic Wallet 由你的 AI Agent 操作，而不是浏览器插件。把下面这段提示词发给你的 Agent（指向本站 llms.txt / agent.md）：")}</p>` +
-      `<textarea id="agentPrompt" readonly rows="5">${esc(agentPrompt())}</textarea>` +
-      `<div class="btnrow"><button class="mini" id="copyPrompt">${T("Copy prompt", "复制提示词")}</button><a class="mini" href="llms.txt" target="_blank">llms.txt</a><a class="mini" href="agent.md" target="_blank">agent.md</a></div>` +
-      `<pre class="cmd">baw contract-call preview --binanceChainId 56 --from &lt;wallet&gt; --to ${deployed ? C.mint : "&lt;mint, not deployed yet&gt;"} --value &lt;wei&gt; --inputData &lt;calldata&gt; --json
-baw contract-call execute --requestId &lt;id&gt; --json</pre>` +
-      `<p class="small">${T("Check an Agentic Wallet address (read-only):", "查询 Agentic Wallet 地址（只读）：")}</p>` +
-      `<div class="ctrl"><input id="watchAddr" placeholder="0x…" spellcheck="false" style="width:100%;text-align:left"><button class="mini" id="watchBtn">${T("Check", "查询")}</button></div><div class="small" id="watchOut"></div>`;
     $("modalBody").innerHTML = h;
     $("bnQrBtn").onclick = startQr;
     renderQr();
-    document.querySelectorAll("#modalBody .wbtn[data-i]").forEach((el) => (el.onclick = () => connectWith(list[+el.dataset.i])));
-    $("copyUrl").onclick = () => copy(dappUrl(), $("copyUrl"));
-    $("copyPrompt").onclick = () => copy(agentPrompt(), $("copyPrompt"));
-    $("watchBtn").onclick = watchCheck;
   }
+  // Test hook only (headless tests drive a mock injected wallet); not shown anywhere in the UI.
+  window.__bnTestConnect = (i) => connectWith(walletList()[i || 0]);
   async function watchCheck() {
     const a = $("watchAddr").value.trim();
     if (!isAddr(a)) { $("watchOut").textContent = T("Enter a valid 0x address.", "请输入有效的 0x 地址。"); return; }

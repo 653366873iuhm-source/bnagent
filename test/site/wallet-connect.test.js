@@ -50,13 +50,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('no-wallet: live supply >= 1,100 / 100,000,000 and mint state', +(await pg.textContent('#sMinted')).trim().replace(/,/g, '') >= 1100 && /暂停|开放|售罄/.test(await pg.textContent('#sPaused')), (await pg.textContent('#sMinted')) + ' ' + (await pg.textContent('#sPaused')));
     await pg.click('#connectBtn');
     const body = await pg.textContent('#modalBody');
-    ok('no-wallet: chooser opens and says no wallet detected', body.includes('未检测到浏览器钱包'));
-    ok('no-wallet: chooser has mobile deep links', (await pg.$$('#modalBody a.wbtn')).length === 3);
-    ok('no-wallet: chooser has agent prompt with llms.txt', (await pg.inputValue('#agentPrompt')).includes('llms.txt'));
-    await pg.fill('#watchAddr', ADDR); await pg.click('#watchBtn');
-    await pg.waitForFunction(() => /allin168|无 \.ai|失败/.test(document.getElementById('watchOut').textContent), null, { timeout: 20000 }).catch(() => {});
-    const w = await pg.textContent('#watchOut');
-    ok('no-wallet: read-only Agent ID check works', w.includes('allin168.ai') && w.includes('已铸'), w);
+    ok('chooser shows only the Binance QR connect (no browser wallets, deep links, agent prompt)', (await pg.$$('#modalBody .wbtn')).length === 1 && !!(await pg.$('#bnQrBtn')) && !body.includes('浏览器钱包') && !(await pg.$('#agentPrompt')) && !(await pg.$('#watchAddr')), body);
     await pg.screenshot({ path: __dirname + '/shot-nowallet-modal.png', fullPage: false });
     await ctx.close();
   }
@@ -66,9 +60,8 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); }); pg.on('pageerror', e => errs.push(String(e)));
     await pg.goto(base + '?lang=en', { waitUntil: 'networkidle' });
     await pg.click('#connectBtn');
-    const names = await pg.$$eval('#modalBody .wbtn[data-i]', els => els.map(e => e.textContent));
-    ok('mock: chooser lists the EIP-6963 wallet once (deduped with window.ethereum)', names.length === 1 && names[0].includes('Mock Wallet'), JSON.stringify(names));
-    await pg.click('#modalBody .wbtn[data-i="0"]');
+    ok('mock: chooser still shows only the Binance QR connect', (await pg.$$('#modalBody .wbtn')).length === 1);
+    await pg.evaluate(() => window.__bnTestConnect(0));
     await pg.waitForFunction(() => /allin168\.ai/.test(document.getElementById('walletBox').textContent), null, { timeout: 20000 }).catch(() => {});
     const wb = await pg.textContent('#walletBox');
     const calls = await pg.evaluate(() => window.__calls);
