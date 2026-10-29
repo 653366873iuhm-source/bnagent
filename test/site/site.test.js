@@ -302,7 +302,7 @@ const results = []; const ok = (name, cond, extra = '') => { results.push([cond 
     ok('Invite dialog: Bind X (Jager text, "Connect to bind") and Border season (7 borders Bronze 0 … King 42)', iv.includes('Bind X') && iv.includes('Shows your @X next to your .ai on the leaderboards and your Mint Pass. One X per Agent ID. After unbinding, wait 7 days to bind again. No quota reward.') && !!(await pg.$('#xbConnect')) && iv.includes('Border season') && iv.includes('Each UTC day, landing in the Top 100 of the Invites, Mints or Holders day board earns +1 point (up to 3 a day).') && bl.join('|') === 'Bronze 0|Silver 7|Gold 14|Platinum 21|Diamond 28|Master 35|King 42', JSON.stringify(bl));
     await pg.click('#ivClose');
     // leaderboard badge + X link
-    if (LOCAL) { await pg.click('#lbBoards button[data-b="invites"]'); await pg.click('#lbPeriod button[data-p="day"]'); }
+    if (LOCAL) { await pg.click('#lbBoards button[data-b="invites"]'); await pg.click('#lbPeriod button[data-p="day"]'); } else { await pg.click('#lbBoards button[data-b="holders"]'); await pg.waitForFunction(() => document.querySelector('#lbList li.lbrow'), null, { timeout: 15000 }).catch(() => {}); }
     const lb1 = await pg.evaluate(() => { const li = document.querySelector('#lbList li.lbrow'); return li ? { dia: !!li.querySelector('.dia'), x: (li.querySelector('.nm a') || {}).href || null, color: (li.querySelector('.dia') || {}).style ? li.querySelector('.dia').style.background : '' } : null; });
     ok('leaderboard: colored border diamond per row, bound X links to x.com', !!lb1 && lb1.dia && (!LOCAL || (lb1.x === 'https://x.com/allin_x' && /240, 185, 11|f0b90b/i.test(lb1.color))), JSON.stringify(lb1));
     // connect -> Agent ID verified, pass share block, Bind X flow
