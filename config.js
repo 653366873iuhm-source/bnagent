@@ -15,6 +15,8 @@ window.BNAGENT_CONFIG = {
   // Binance Agentic Wallet QR login proxy (server/ in the repo, Render web service). The mint contract address must be added to
   // its ALLOW_TO env var after deployment, otherwise mint previews are refused (USDT approve is always allowed).
   agentApi: "https://bnagent-api.onrender.com/api/agent-wallet",
+  // Same API service: /api/social (task vouchers), /api/leaderboard; pinged on page load to wake the free instance.
+  api: "https://bnagent-api.onrender.com",
   // Social tasks: handles are placeholders until decided.
   social: {
     x: "bnAgent_", // https://x.com/bnAgent_ (without @)

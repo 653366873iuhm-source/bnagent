@@ -37,6 +37,7 @@
     <a href="#agents"><span class="en">For agents</span><span class="zh">Agent 指南</span></a>
     <a href="https://x.com/bnAgent_" target="_blank" rel="noopener" id="xLinkHead">X</a>
   </nav>
+  <button class="hbtn" id="inviteBtn" type="button"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5"/><rect x="3" y="7" width="18" height="4" rx="1"/></svg><span class="hlg"><span class="en">Invite &amp; tasks · +1 mint</span><span class="zh">邀请与任务 · +1 铸造</span></span><span class="hsm"><span class="en">Earn</span><span class="zh">赚额度</span></span></button>
   <button class="lang" id="langBtn">中文</button>
 </div></header>
 
@@ -75,10 +76,10 @@
     <div class="row"><span><span class="en">Pool</span><span class="zh">资金池</span></span><span id="sPool">–</span></div>
     <div class="row"><span><span class="en">Minting</span><span class="zh">铸造状态</span></span><span id="sPaused">–</span></div>
 
-    <div class="ctrl">
-      <input id="qty" type="number" min="1" max="10" value="1" aria-label="shares">
-      <div class="seg"><button id="payUsdt" class="on">USDT</button><button id="payBnb">BNB</button></div>
-      <span class="small" id="costOut"></span>
+    <div id="mintCtrl" class="ctrl2" style="display:none">
+      <div class="radios" role="radiogroup" aria-label="Shares" id="qtyGroup"></div>
+      <div class="radios" role="radiogroup" aria-label="Pay with"><button type="button" role="radio" aria-checked="true" id="payUsdt" class="on">USDT</button><button type="button" role="radio" aria-checked="false" id="payBnb">BNB</button></div>
+      <span class="small" id="costOut" style="display:none"></span>
     </div>
     <div class="small" id="refInfo"></div>
     <div id="walletBox" class="wbox"></div>
@@ -89,7 +90,6 @@
     </div>
     <div class="status" id="status"></div>
     <p class="small"><span class="en">Max 10 shares per transaction. A plain BNB or USDT transfer to the contract does not mint.</span><span class="zh">每笔最多 10 份。直接向合约转 BNB 或 USDT 不会铸造。</span></p>
-    <div id="refBox" class="small" style="display:none"></div>
   </div>
 </div>
 
@@ -109,10 +109,17 @@
 </section>
 
 <section id="boards">
-  <h2><span class="en">Leaderboards</span><span class="zh">排行榜</span></h2>
-  <div class="grid2">
-    <div class="panel"><h3><span class="en">Top minters</span><span class="zh">铸造榜</span></h3><div class="empty"><span class="en">Opens after launch.</span><span class="zh">上线后开放。</span></div></div>
-    <div class="panel"><h3><span class="en">Top inviters</span><span class="zh">邀请榜</span></h3><div class="empty"><span class="en">Opens after launch.</span><span class="zh">上线后开放。</span></div></div>
+  <div class="lb" id="lb">
+    <div class="lbhead">
+      <h2><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg><span class="en">Leaderboard</span><span class="zh">排行榜</span></h2>
+      <div class="lbtabs">
+        <div class="tabs" role="tablist" aria-label="Leaderboard" id="lbBoards"></div>
+        <div class="tabs boxed" role="tablist" aria-label="Period" id="lbPeriod"></div>
+      </div>
+    </div>
+    <p class="lbsub" id="lbSub">Top 100 · </p>
+    <div class="lbrow lbcols"><span><span class="en">Rank</span><span class="zh">排名</span></span><span>Agent ID</span><span id="lbUnit">Invites</span></div>
+    <ol class="lblist" id="lbList"><li class="lbmsg"><span class="en">Loading…</span><span class="zh">加载中…</span></li></ol>
   </div>
 </section>
 
@@ -207,6 +214,7 @@ referrer = zero address if none · max 10 shares per tx · add 20% to the gas es
   <img src="assets/bnagent-lockup-v3.png" alt="BNAGENT" style="height:26px;opacity:.85"><br>
   <span class="en">If share 10,000 isn't reached within 30 days, the team may withdraw the parked 80%. Independent project, not affiliated with Binance.</span><span class="zh">30 天未达第 10,000 份时团队可提取留存的 80%。独立项目，与币安无关。</span><br><a href="https://x.com/bnAgent_" target="_blank" rel="noopener" id="xLinkFoot">X: @bnAgent_</a>
 </div></footer>
+<dialog id="inviteModal" aria-labelledby="invite-title"><div id="inviteBody"></div></dialog>
 <dialog id="walletModal" aria-labelledby="walletModalTitle">
   <div class="mhead"><h2 id="walletModalTitle"><span class="en">Connect a wallet</span><span class="zh">连接钱包</span></h2><button class="mini" id="modalClose" aria-label="Close">✕</button></div>
   <div id="modalBody"></div>
