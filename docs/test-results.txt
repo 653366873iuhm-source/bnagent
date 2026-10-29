@@ -1,33 +1,51 @@
-# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130495086, run 2026-10-30 00:01 CST)
+# forge test -vv  (BSC mainnet fork, publicnode, FORK_BLOCK=130505598, run 2026-10-30 ~00:45 CST)
+# 25 / 25 PASS (run in two batches because of the 120 s sandbox limit)
 No files changed, compilation skipped
-Ran 16 tests for test/BnagentFork.t.sol:BnagentForkTest
-[PASS] test_BnbMintWithRefund() (gas: 388786)
-[PASS] test_EmptyPairDonationAndDirectLpAdd() (gas: 86138589)
-[PASS] test_FullFlow() (gas: 413653356)
+Ran 24 tests for test/BnagentFork.t.sol:BnagentForkTest
+[PASS] test_BnbMintWithRefund() (gas: 470924)
+[PASS] test_BurnedShares() (gas: 348603)
+[PASS] test_GriefEmptyPairDonateAndSync() (gas: 120259260)
+[PASS] test_GriefEmptyPairDonateNoSyncAndSkim() (gas: 119913062)
+[PASS] test_HardCapEnforcedInToken() (gas: 16225)
+[PASS] test_InviteAndSelfInvite() (gas: 657773)
+[PASS] test_JagerSelectors() (gas: 6294)
+[PASS] test_MintRules() (gas: 584144)
+[PASS] test_OpenInsideCrossingTx() (gas: 119973272)
+[PASS] test_PausedAtDeployAndAdmin() (gas: 295337)
+[PASS] test_PlainTransfersDoNotMint() (gas: 15462)
+[PASS] test_PlannedDeploymentAddress() (gas: 8561561)
+Logs:
+  planned mint: 0x2B1Ec8a99BDd66ba6192b5b1755e8B346CcE9705
+  planned token: 0x76aE68D5cdD675dC81593923BFb13d6967E4fbdc
+  planned pair: 0x2fD791295f5F53F095Cb2102B0496e63E7e0514d
+[PASS] test_PriceTable() (gas: 82642046)
+[PASS] test_RealAgentIdsResolve() (gas: 32232)
+[PASS] test_RenounceBeforeOpen() (gas: 119980849)
+[PASS] test_SocialTasks() (gas: 276238)
+[PASS] test_TransfersClosedBeforeOpen() (gas: 287621)
+[PASS] test_ValveAfterDeadlineWithdrawsAndCloses() (gas: 605150)
+[PASS] test_ValveBeforeDeadlineReverts() (gas: 350766)
+[PASS] test_ValveClockStartsOnFirstUnpauseOnly() (gas: 32029)
+[PASS] test_ValveNeverAfterPoolOpens() (gas: 119768481)
+[PASS] test_ValveNeverStartedNeverWithdrawable() (gas: 8302838)
+[PASS] test_ValveNonTreasuryReverts() (gas: 352735)
+[PASS] test_ValveWorksAfterRenounce() (gas: 351292)
+Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 45.84s (74.83s CPU time)
+Ran 1 test suite in 45.85s (45.84s CPU time): 24 tests passed, 0 failed, 0 skipped (24 total tests)
+No files changed, compilation skipped
+Ran 1 test for test/BnagentFork.t.sol:BnagentForkTest
+[PASS] test_FullFlow() (gas: 566455060)
 Logs:
   mint txs with floor burn, shares 10,001-20,000: 999
   mint txs with floor burn, shares 20,001-30,000: 1000
-  final pool USDT (wei): 8025038530687318813168
-  final pool BNAGENT (tokens): 114239495209
-  final total supply (tokens): 1615580790822
-  final circulating (tokens): 1216797812826
-  dead balance (tokens): 284543482787
-  circ value at pool price (USDT): 85476
-  floor line (USDT): 85477
-  treasury USDT gained (net of its LP add): 39400
-  treasury BNB gained (wei): 997133304501398
-[PASS] test_HardCapEnforcedInToken() (gas: 16137)
-[PASS] test_InviteAndSelfInvite() (gas: 507213)
-[PASS] test_JagerSelectors() (gas: 6152)
-[PASS] test_MintRules() (gas: 461999)
-[PASS] test_NoMintPastOpenAtBeforeTrading() (gas: 85545938)
-[PASS] test_OpenTradingRevertsBefore10000() (gas: 85716583)
-[PASS] test_PausedAtDeployAndAdmin() (gas: 212486)
-[PASS] test_PlainTransfersDoNotMint() (gas: 15440)
-[PASS] test_PriceTable() (gas: 40285095)
-[PASS] test_RealAgentIdsResolve() (gas: 32342)
-[PASS] test_RenounceBeforeOpen() (gas: 85894639)
-[PASS] test_SocialTasks() (gas: 276078)
-[PASS] test_TransfersClosedBeforeOpen() (gas: 205704)
-Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 40.71s (42.82s CPU time)
-Ran 1 test suite in 40.71s (40.71s CPU time): 16 tests passed, 0 failed, 0 skipped (16 total tests)
+  final pool USDT (wei): 37065028949832863412519
+  final pool BNAGENT (tokens): 507564786142
+  final total supply (tokens): 2050230036851
+  final circulating (tokens): 1143331067728
+  dead balance (tokens): 399334182980
+  circ value at pool price (USDT): 83491
+  floor line (USDT): 83492
+  treasury USDT gained: 9260
+  treasury BNB gained (wei): 996371339355996
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 98.74s (97.68s CPU time)
+Ran 1 test suite in 98.74s (98.74s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

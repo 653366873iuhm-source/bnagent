@@ -3,3 +3,4 @@ cache/
 ref/
 broadcast/
 .env
+secrets/

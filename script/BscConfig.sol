@@ -19,6 +19,9 @@ library BscConfig {
     address internal constant CHAINLINK_BNB_USD = 0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE;
     /// @notice Treasury / tax receiver / admin = the user's Binance Agentic Wallet.
     address internal constant TREASURY = 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE;
+    /// @notice Dedicated social-task EIP-712 signer (like Jager's separate quotaSigner). Generated 2026-10-30;
+    ///         the key is kept encrypted outside git (secrets/, gitignored). It has no funds and no other power.
+    address internal constant SOCIAL_SIGNER = 0x66ECa9C28e4e4807e37C078b917e527DC85aC199;
 
     uint256 internal constant V2_FEE_BPS = 25;
     uint256 internal constant FEED_MAX_AGE = 3600;

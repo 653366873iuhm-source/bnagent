@@ -6,11 +6,10 @@ import {IV2Factory} from "./interfaces/IExternal.sol";
 
 /// @title BNAGENT token
 /// @notice Same rules and public interface as the $JAGENT token (BSC 0x8e64…5aE15), with these
-///         intended differences only: name BNAGENT, cap 4.44T, and the treasury may move its own
-///         tokens into the official pair before trading opens (it adds the opening liquidity itself).
+///         intended differences only: name BNAGENT and cap 4.44T.
 ///         Minted only by the mint contract (the contract that deploys it), up to MAX_SUPPLY including
-///         the dead address. Before trading opens only mint-contract sends (and treasury -> official
-///         pair) move. After that every wallet and plain contract can receive. Only pool-like receivers
+///         the dead address. Before the pool opens only mint-contract sends move (the mint contract
+///         opens the pool itself at share 10,000). After that every wallet and plain contract can receive. Only pool-like receivers
 ///         are refused: other pairs holding this token, the hardcoded V4 PoolManager and Infinity Vault,
 ///         and pools the mint contract blocks. Buys from the official pair leave 1% with the mint
 ///         contract. Sells send 1% to dead and leave 1% with the mint contract. Nothing else is taxed and
@@ -29,8 +28,6 @@ contract BnagentToken is ERC20 {
     address public immutable infinityVault;
     /// @notice The mint contract. It deployed this token and is the only address able to create supply.
     address public immutable minter;
-    /// @notice Project treasury: before trading opens it may move its tokens into the official pair only.
-    address public immutable treasury;
 
     bool public tradingEnabled;
     bool public blocksDisabled;
@@ -46,14 +43,13 @@ contract BnagentToken is ERC20 {
     error PoolRejected();
     error SupplyCap();
 
-    constructor(address usdt_, address factory_, address poolManager_, address infinityVault_, address treasury_)
+    constructor(address usdt_, address factory_, address poolManager_, address infinityVault_)
         ERC20("BNAGENT", "BNAGENT")
     {
-        if (usdt_ == address(0) || factory_ == address(0) || treasury_ == address(0)) revert ZeroAddress();
+        if (usdt_ == address(0) || factory_ == address(0)) revert ZeroAddress();
         usdt = usdt_;
         poolManager = poolManager_;
         infinityVault = infinityVault_;
-        treasury = treasury_;
         minter = msg.sender;
         pair = IV2Factory(factory_).createPair(address(this), usdt_);
     }
@@ -124,8 +120,7 @@ contract BnagentToken is ERC20 {
         }
         address m = minter;
         if (!tradingEnabled) {
-            // BNAGENT difference: the treasury may fund the official pair (manual opening liquidity).
-            if (from != m && !(from == treasury && to == pair)) revert TransfersClosed();
+            if (from != m) revert TransfersClosed();
             super._update(from, to, value);
             return;
         }

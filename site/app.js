@@ -35,7 +35,8 @@
   const priceCents = (n) => (n <= 10000 ? 100 : n <= 20000 ? 110 + 10 * Math.floor((n - 10001) / 1000) : 210 + 2 * Math.floor((n - 20001) / 1000));
   function stepTable() {
     let h = `<table><thead><tr><th>${T("Shares", "份数")}</th><th>${T("Price (USDT)", "价格 (USDT)")}</th></tr></thead><tbody>`;
-    h += `<tr data-from="1" data-to="10000"><td>1 – 10,000</td><td>1.00</td></tr>`;
+    h += `<tr data-from="1" data-to="1100" class="burned"><td>1 – 1,100</td><td>${T("burned at deploy (never sold)", "部署时销毁（不出售）")}</td></tr>`;
+    h += `<tr data-from="1101" data-to="10000"><td>1,101 – 10,000</td><td>1.00</td></tr>`;
     for (let s = 10001; s <= 30000; s += 1000) h += `<tr data-from="${s}" data-to="${s + 999}"><td>${s.toLocaleString()} – ${(s + 999).toLocaleString()}</td><td>${(priceCents(s) / 100).toFixed(2)}</td></tr>`;
     $("stepTable").innerHTML = h + "</tbody></table>";
   }
@@ -75,7 +76,7 @@
 
   // selectors (BnagentMint keeps the Jager/$JAGENT ABI)
   const SEL = {
-    overview: "0x3a2056f1", walletStatus: "0x4d6d0af8", costOf: "0xfd326592", bnbQuote: "0x68bce8cd",
+    overview: "0x3a2056f1", valve: "0x3a81955f", walletStatus: "0x4d6d0af8", costOf: "0xfd326592", bnbQuote: "0x68bce8cd",
     mint: "0x836a1040", mintWithBnb: "0xe38fd349", allowance: "0xdd62ed3e", approve: "0x095ea7b3",
     balanceOf: "0x70a08231", handleOf: "0xc50a1514", ownerOfHandle: "0x1da94fb4",
   };
@@ -90,7 +91,8 @@
     "0x19abf40e": ["The BNB price feed is out of date. Pay with USDT or try later.", "BNB 喂价过期，请改用 USDT 或稍后再试。"],
     "0x79858a71": ["The BNB swap returned too little USDT. Nothing was charged; try again.", "BNB 兑换得到的 USDT 不足，未扣款，请重试。"],
     "0xf0c49d44": ["This wallet cannot receive BNB change. Pay with USDT instead.", "该钱包无法接收找零 BNB，请改用 USDT。"],
-    "0xddafad98": ["Trading is not open yet: after share 10,000 minting resumes once the team adds liquidity and opens trading.", "尚未开放交易：第 10,000 份之后需等团队加池并开放交易才能继续铸造。"],
+    "0xddafad98": ["The pool is not open yet.", "资金池尚未开启。"],
+    "0x589ed34b": ["Minting has ended: 10,000 shares were not reached within 30 days and the pooled USDT was withdrawn.", "铸造已结束：30 天内未达到第 10,000 份，池内 USDT 已被提取。"],
     "0xe450d38c": ["Not enough USDT in this wallet.", "钱包 USDT 余额不足。"],
     "0xfb8f41b2": ["USDT approval is too low. Approve again.", "USDT 授权额度不足，请重新授权。"],
   };
@@ -111,6 +113,7 @@
       try {
         const w = words(await call(C.mint, SEL.overview));
         state = { minted: Number(w[0]), paid: w[1], paused: w[2] === 1n, open: w[3] === 1n, nextCents: Number(w[4]), u: w[5], t: w[6], supply: w[7], circ: w[8], line: w[9], mintable: Number(w[10] || 0n) };
+        try { const v = words(await call(C.mint, SEL.valve)); Object.assign(state, { start: Number(v[0]), deadline: Number(v[1]), closed: v[2] === 1n, held: v[3] }); } catch (e) {}
       } catch (e) { state = null; }
     }
     render();
@@ -128,24 +131,33 @@
     stepTable();
     $("notDeployed").style.display = deployed ? "none" : "block";
     const s = state;
+    const BURNED = 1100, TOTAL = 30000;
+    const progress = (m) => {
+      $("sMinted").textContent = m.toLocaleString();
+      $("sBar").style.width = (m / TOTAL * 100).toFixed(3) + "%"; // burned + minted, one gold bar
+      $("sLegend").textContent = `Burned + Minted ${m.toLocaleString()} / ${TOTAL.toLocaleString()}`;
+    };
+    const dl = (d) => new Date(d * 1000).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     if (s) {
-      const next = Math.min(s.minted + 1, 30000);
-      $("sMinted").textContent = `${s.minted.toLocaleString()} / 30,000`;
-      $("sBar").style.width = (s.minted / 300).toFixed(2) + "%";
-      $("sTier").textContent = s.minted >= 30000 ? T("Sold out", "已售罄") : tierName(next);
-      $("sNext").textContent = s.minted >= 30000 ? "–" : "#" + next.toLocaleString();
+      const next = Math.min(s.minted + 1, TOTAL);
+      progress(s.minted);
+      $("sTier").textContent = s.minted >= TOTAL ? T("Sold out", "已售罄") : tierName(next);
+      $("sNext").textContent = s.minted >= TOTAL ? "–" : "#" + next.toLocaleString();
       $("sPrice").textContent = s.nextCents ? (s.nextCents / 100).toFixed(2) + " USDT" : "–";
-      if (!s.open) $("sGet").textContent = s.minted < 10000 ? "50,000,000 BNAGENT" : T("after trading opens", "开放交易后按池价");
+      if (!s.open) $("sGet").textContent = "50,000,000 BNAGENT";
       else if (s.u > 0n) $("sGet").textContent = "≈ " + fmt((BigInt(s.nextCents) * 10n ** 16n * s.t * 10000n) / (s.u * 9900n), 0) + " BNAGENT";
-      $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : s.minted < 10000 ? T(`Team adds LP after share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份售出后由团队加池（还差 ${(10000 - s.minted).toLocaleString()} 份）`) : T("Minting resumes once the team adds LP and opens trading", "等待团队加池并开放交易后继续铸造");
-      $("sPaused").textContent = s.paused ? T("Paused", "暂停中") : s.mintable === 0 && s.minted < 30000 ? T("Waiting for openTrading()", "等待开放交易") : T("Open", "开放中");
+      $("sPool").textContent = s.open ? `${fmt(s.u)} USDT / ${fmt(s.t, 0)} BNAGENT` : T(`Opens automatically at share 10,000 (${(10000 - s.minted).toLocaleString()} to go)`, `第 10,000 份时自动开池（还差 ${(10000 - s.minted).toLocaleString()} 份）`);
+      $("sPaused").textContent = s.closed ? T("Ended (30-day deadline, USDT withdrawn)", "已结束（30 天期限已过，USDT 已提取）") : s.paused ? T("Paused", "暂停中") : s.minted >= TOTAL ? T("Sold out", "已售罄") : T("Open", "开放中");
+      $("sDeadline").textContent = s.open ? T("Not applicable: pool is open", "已开池，不再适用") : s.deadline ? dl(s.deadline) + (Date.now() / 1000 > s.deadline ? T(" (passed)", "（已过）") : "") : T("30 days after minting opens", "开放铸造后 30 天");
       document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", next >= +tr.dataset.from && next <= +tr.dataset.to));
     } else {
-      $("sMinted").textContent = deployed ? "– / 30,000" : "0 / 30,000";
-      $("sTier").textContent = tierName(1); $("sNext").textContent = "#1"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
-      $("sPool").textContent = T("Team adds LP after share 10,000", "第 10,000 份售出后由团队加池");
+      progress(BURNED);
+      if (deployed) { $("sMinted").textContent = "–"; $("sLegend").textContent = `Burned + Minted – / ${TOTAL.toLocaleString()}`; }
+      $("sTier").textContent = tierName(1101); $("sNext").textContent = "#1,101"; $("sPrice").textContent = "1.00 USDT"; $("sGet").textContent = "50,000,000 BNAGENT";
+      $("sPool").textContent = T("Opens automatically at share 10,000", "第 10,000 份时自动开池");
       $("sPaused").textContent = deployed ? "–" : T("Contracts not deployed", "合约未部署");
-      document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", +tr.dataset.from === 1));
+      $("sDeadline").textContent = T("30 days after minting opens", "开放铸造后 30 天");
+      document.querySelectorAll("#tierBody tr, #stepTable tr[data-from]").forEach((tr) => tr.classList.toggle("now", +tr.dataset.from === 1101));
     }
     updateCost();
     const row = (k, v) => `<div class="row"><span>${k}</span><span class="mono addr">${isAddr(v) ? `<a href="${C.explorer}/address/${v}" target="_blank" rel="noopener">${v}</a>` : T("not deployed yet", "尚未部署")}</span></div>`;
@@ -157,7 +169,7 @@
 
   async function updateCost() {
     const q = qty();
-    let cents = 0; const start = state ? state.minted : 0;
+    let cents = 0; const start = state ? state.minted : 1100;
     for (let i = 1; i <= q; i++) cents += priceCents(start + i);
     let txt = (cents / 100).toFixed(2) + " USDT";
     if (pay === "bnb" && deployed) {
@@ -354,7 +366,7 @@
     else if (!s) label = T("Loading…", "加载中…");
     else if (s.paused) label = T("Minting is paused", "铸造已暂停");
     else if (s.minted >= 30000) label = T("Sold out", "已售罄");
-    else if (s.mintable === 0) label = T("Waiting for trading to open", "等待开放交易");
+    else if (s.closed || s.mintable === 0) label = T("Minting ended", "铸造已结束");
     else if (W.status && W.status.quota - W.status.minted <= 0) label = T("Quota used · invite or do tasks", "额度已用完 · 邀请或做任务");
     else { label = T(`Mint ${qty()} share${qty() > 1 ? "s" : ""} · ${$("costOut").textContent.replace("≈ ", "")}`, `铸造 ${qty()} 份 · ${$("costOut").textContent.replace("≈ ", "")}`); ok = true; }
     b.textContent = label;

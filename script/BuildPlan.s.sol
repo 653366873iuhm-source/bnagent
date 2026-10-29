@@ -6,10 +6,10 @@ import {BscConfig} from "./BscConfig.sol";
 
 /// @notice Writes the UNSIGNED deployment plan to deploy/bsc-mainnet-plan.json. Broadcasts nothing.
 ///         SOCIAL_SIGNER (env, optional) = address whose EIP-712 signatures grant social-task quota.
-///         Defaults to the treasury wallet (it can sign EIP-712 through `baw sign-message`).
+///         Defaults to the dedicated signer BscConfig.SOCIAL_SIGNER.
 contract BuildPlan is Script {
     function run() external {
-        address socialSigner = vm.envOr("SOCIAL_SIGNER", BscConfig.TREASURY);
+        address socialSigner = vm.envOr("SOCIAL_SIGNER", BscConfig.SOCIAL_SIGNER);
         bytes memory init = BscConfig.initCode(socialSigner);
         address mintAddr = BscConfig.predicted(socialSigner);
         address tokenAddr = vm.computeCreateAddress(mintAddr, 1);
@@ -26,14 +26,14 @@ contract BuildPlan is Script {
         vm.serializeBytes32(o, "initCodeHash", keccak256(init));
 
         string memory t1 = "tx1";
-        vm.serializeString(t1, "description", "Deploy BnagentMint via the CREATE2 deployer proxy (also deploys BnagentToken and creates the official, empty PancakeSwap BNAGENT/USDT pair). Mint starts PAUSED. No liquidity is added by contracts: 100% of mint payments go to the treasury; at share 10,000 the treasury receives 400B BNAGENT, adds LP itself, then calls openTrading().");
+        vm.serializeString(t1, "description", "Deploy BnagentMint via the CREATE2 deployer proxy (also deploys BnagentToken and creates the official, empty PancakeSwap BNAGENT/USDT pair). Mint starts PAUSED; shares #1-#1,100 are burned (sale starts at #1,101). Jager money model: 20% of each payment to the treasury, 80% held by the mint contract; the tx reaching share 10,000 automatically opens the official pool with everything parked (7,120 USDT + 356B BNAGENT), LP to dead; afterwards 80% of each mint is added to the pool (LP to dead).");
         vm.serializeAddress(t1, "to", BscConfig.CREATE2_PROXY);
         vm.serializeString(t1, "value", "0");
         vm.serializeAddress(t1, "expectedAddress", mintAddr);
         string memory tx1 = vm.serializeBytes(t1, "data", deployData);
 
         string memory t2 = "tx2";
-        vm.serializeString(t2, "description", "Open minting: treasury calls setPaused(false) on the mint contract (only after the website shows the deployed addresses).");
+        vm.serializeString(t2, "description", "Open minting: treasury calls setPaused(false) on the mint contract (only after the website shows the deployed addresses). The first unpause starts the 30-day clock: if share 10,000 is not reached by mintStartTime + 30 days, only the treasury can call withdrawUnfilled() (selector 0xa65c6326), which sends all USDT held to the treasury and closes minting for good.");
         vm.serializeAddress(t2, "to", mintAddr);
         vm.serializeString(t2, "value", "0");
         string memory tx2 = vm.serializeBytes(t2, "data", unpauseData);

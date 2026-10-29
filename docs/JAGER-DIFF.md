@@ -1,90 +1,79 @@
-# BNAGENT vs Jager ($JAGENT) — function-by-function self-audit
+# BNAGENT vs Jager ($JAGENT) — function-by-function audit
 
-Reference (verified source, `ref/`): mint `JagentMintV2` 0x3643A907f875fA9B740e1C0747E91b5aA5222aB8, token `JagentTokenV2`
-0x8e6442663A4F8C50b6132c68d42A30E7DFE4Ae15 (BSC). Audit date 2026-10-30 CST.
+Reference (verified source, `ref/`, gitignored): mint `JagentMintV2` 0x3643A907f875fA9B740e1C0747E91b5aA5222aB8, token `JagentTokenV2`
+0x8e6442663A4F8C50b6132c68d42A30E7DFE4Ae15 (BSC). Updated 2026-10-30 CST for the user's decisions of 00:25 and 00:34 CST:
+**back to Jager's money model** (20% treasury / 80% to the pool, automatic open at share 10,000, LP to dead), plus the
+allowed differences below. The earlier manual-LP / `openTrading()` / 400B-to-treasury model is removed everywhere.
 
-Allowed differences (user, 2026-10-29 23:52 CST):
-**(a)** 100% of mint payments to treasury 0x49E6…9BCE; team adds LP manually (400B minted to treasury at share 10,000; one-time
-`openTrading()` after LP). **(b)** 30,000 shares, Jager price table truncated. **(c)** 4.44T cap + scaled constants. **(d)** name BNAGENT.
-Floor line kept.
+## Allowed differences (the only ones)
 
-Legend: **SAME** · **INTENDED (a/b/c/d)** · **N/A** = Jager-only migration of its earlier deployment (snapshot/quota import, seed) —
-BNAGENT is a fresh launch · **FIXED** = an unintended difference found in the previous BNAGENT build (commit 30ba97e) and removed in this one.
+| Id | Difference | Where |
+|---|---|---|
+| A | **30,000 shares**, Jager price table truncated at 30,000 (first three tiers, identical formulas) | `TOTAL_SHARES`, `priceCents` |
+| B | **1,100 burned shares**: shares #1–#1,100 are burned at deploy — never sold, no tokens, no USDT. `totalMinted` starts at 1,100 (as Jager's `START_MINTED` 9,515, but with `totalPaid` = 0); first sold share #1,101 at the table price (1 USDT); 28,900 sellable. `BURNED_SHARES` / `SELLABLE_SHARES` constants, `soldShares()` view, `SharesBurned(1, 1100)` event in the constructor | mint |
+| C | **Opening amounts from what is parked**, not hard-coded 8,000 USDT / 400B: `_open()` pairs `pendingUsdt` with `pendingTokens` (8,900 paid shares → 7,120 USDT + 356B, same 50M/USDT pre-pool price). Jager's `pendingUsdt == OPEN_USDT` check becomes `pendingUsdt > 0 && pendingTokens > 0` (error `NotSeeded`). Uses the accounting counters, not `balanceOf`, so USDT donated to the mint contract cannot change the opening or push the token mint over the cap | `_open` |
+| D | **4.44T cap + scaled constants**: `MAX_SUPPLY` 4.44T (both contracts); floor line `paid × 83,492 / 46,300` (46,300 = price of the 28,900 sellable shares; 83,492 = 46,300 × 50,000,000 / 27,727,060 → same ≈1.8033× as Jager); ceiling (view only) 100,191 / 46,300; `POOL_TOKEN_FLOOR` 116,666,667 (Jager ÷100, cap ratio) | constants |
+| E | **Name** BNAGENT (token name/symbol, EIP-712 domain "BnagentMint") | |
+| F | **Treasury** 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE (immutable) | constructor |
+| G | **30-day `withdrawUnfilled()`** (new): `mintStartTime` is set on the first `setPaused(false)` (or `renounce()`, which also unpauses); `mintDeadline()` = start + 30 days. After the deadline (strictly `>`), if share 10,000 has not been reached and minting is not closed, **only `msg.sender == treasury`** (immutable address; not gated by `renounced`, so it works after `renounce()`) can call it: all USDT held by the mint contract → treasury, `mintClosed = true`, `paused = true`, events `PausedSet(true)` + `UnfilledWithdrawn(treasury, amount, totalMinted)`. Never callable before the deadline, never once `opened()`, one-shot. After it `_check` reverts `MintClosed` forever (even if the treasury unpauses); tokens stay non-transferable (trading never enabled). No other withdraw path exists. Views `canWithdrawUnfilled()`, `valve()` | mint |
+| H | **Own social signer**: dedicated EOA 0x66ECa9C28e4e4807e37C078b917e527DC85aC199 (Jager also uses a dedicated key, 0xF6f3…2342) | deploy config |
 
-ABI check (compiled both): of Jager's 127 mint ABI items, 95 now match BNAGENT exactly (name + inputs + outputs); the 32 others are all
-migration (N/A) or 20%-split items. Of 48 token items, 44 match; the 4 others are `deployer/initialize` (see #44). Before this audit only
-30/127 and 22/48 matched. Comparison output: `/workspace/work/jager_abi/abi-compare.json` (scratch).
-
-## Unintended differences found and fixed
-
-| # | Item | Previous BNAGENT | Jager | Now |
-|---|---|---|---|---|
-| F1 | BNB payment | BNB forwarded to treasury as BNB, no swap | Chainlink +1% quote, BNB wrapped and swapped to USDT on PancakeSwap WBNB/USDT V2, `SwapShort` if output < table cost, surplus to treasury | Same swap + `SwapShort` check; **all** USDT output (cost + surplus) to the treasury (a) |
-| F2 | Shares 10,001+ before trading | Allowed at table price, 50M tokens each (an invented phase) | No such state: the pool opens inside share 10,000, every later share is pool-priced | Minting past 10,000 reverts `NotOpen()` until `openTrading()`; a tx that would cross 10,000 reverts; `mintableNow()` view |
-| F3 | `renounce()` precondition | Only after trading opened | Only `seeded && importLocked` (migration), otherwise any time | No precondition (migration N/A). `openTrading()` is not an admin power, so it still works after renounce (tested) |
-| F4 | Function / event / error names, EIP-712 type | Own names (`quote`, `claimTask`, `SocialClaim(...)`, `SharesMinted`, `MintPaused`, …) | `costOf`, `claimSocial`, `Social(address user,bytes32 task,bytes32 account,uint256 deadline)`, `Minted`, `QuotaGranted`, `Paused`, … | All renamed to Jager's: same selectors, same event topics, same error selectors, same EIP-712 struct; storage getters `mintedCount/extraQuota/paidOnce/socialDone/accountAgent/unblockable`, `opened()`, `reserves()`, `circulating()`, `floorValue()`, `ceilValue()`, `openedTime`, `swapTax()/swapTaxSelf()`, token `tradingEnabled/blocksDisabled/blockedPool/rejects/MAX_SUPPLY/enableTrading/burnFromPair/disableBlocks/setPoolBlocked` |
-| F5 | Token tax constants type | `uint16` (`BUY_FEE_BPS`, `SELL_FEE_BPS`) | `uint256 BUY_TAX_BPS/SELL_BURN_BPS/SELL_KEEP_BPS` | Jager's names and types |
-| F6 | Extra `Payment` event | Emitted per mint | none | Removed (payment visible in the USDT Transfer to the treasury) |
-| F7 | Mint-side supply constant | read `token.HARD_CAP()` | `MAX_SUPPLY` constant in the mint | `MAX_SUPPLY` constant in both (4.44T) |
+Structural (no behaviour change): the token is created by the mint constructor (`minter = msg.sender`, no `initialize()`), because the
+CREATE2 deployer proxy cannot make follow-up calls. Migration (snapshot/quota import, `seed`, `lockImport`, `START_PAID`) is N/A for a fresh launch.
 
 ## Full comparison
 
 | # | Area | Jager | BNAGENT | Verdict |
 |---|---|---|---|---|
-| 1 | Name / symbol | JAGENT / JAGENT; EIP-712 domain name "JagentMint" | BNAGENT / BNAGENT; domain "BnagentMint", version "1" | INTENDED (d) |
+| 1 | Name / symbol / EIP-712 domain | JAGENT, "JagentMint" | BNAGENT, "BnagentMint" v1 | E |
 | 2 | Decimals | 18 | 18 | SAME |
-| 3 | TOTAL_SHARES | 4,440,000 | 30,000 | INTENDED (b) |
-| 4 | Token MAX_SUPPLY (incl. dead) | 444T | 4.44T | INTENDED (c) |
-| 5 | `priceCents(n)` | 100 ≤10k; 110+10·⌊(n−10,001)/1,000⌋ ≤20k; 210+2·⌊(n−20,001)/1,000⌋ ≤100k; 2 more tiers | first three formulas, identical; 30,000 → 228 | INTENDED (b) (identical where defined; sum 47,400 USDT) |
-| 6 | Crossing tiers within one tx | per-share loop `priceCents(n+1+i)` in `costOf` and `_mintShares` | identical loop | SAME |
-| 7 | `costOf(shares)` | sum of table prices × 1e16 | identical | SAME |
-| 8 | Agent ID gate `_agent` | `handleOf(msg.sender)` → id = keccak(handle) → `ownerOf(id) == sender`, try/catch | identical, same registry 0x60B9…022F | SAME |
-| 9 | Base quota | 10 per Agent ID (`BASE_PER_ID`) | 10 | SAME |
-| 10 | Invite credit | +1 to referrer's Agent ID on the buyer's first paid mint (`paidOnce`), set before shares are issued; ignored if referrer = 0, = sender, has no Agent ID, or same Agent ID; event `QuotaGranted(referrer, rid, 1, INVITE)` | identical (same order: quota check → payment → `paidOnce` → credit → issue) | SAME |
-| 11 | Social tasks `claimSocial` | FOLLOW / TWEET / TELEGRAM; EIP-712 `Social(user,task,account,deadline)` signed by immutable `quotaSigner`; `deadline` check; `tryRecover`; Agent ID required; once per task per ID; an account hash binds to the first ID; +1 quota | identical | SAME (signer value differs: Jager uses a dedicated backend key 0xF6f3…2342; BNAGENT plan defaults to the treasury — decision open) |
-| 12 | Per-tx limit | 1–10 (`MAX_PER_TX`), `BadShares` | identical | SAME |
-| 13 | Sold-out check | `totalMinted + shares > TOTAL_SHARES` → `SoldOut`; supply > MAX_SUPPLY → `SoldOut` | identical | SAME |
-| 14 | Pause | starts paused; treasury `setPaused`; unpause needs `seeded && importLocked` | starts paused; treasury `setPaused` | SAME (precondition N/A) |
-| 15 | Tokens per share ≤ 10,000 | 50M to buyer (`USER_SHARE`) + 40M parked per share for the pool | 50M to buyer; nothing parked | SAME for the buyer; parking INTENDED (a) |
-| 16 | Share 10,000 | pending 8,000 USDT + 400B tokens → `pair.mint(dead)`, `enableTrading`, `Opened` | 400B (`OPEN_TOKENS`) minted to treasury (`OpenTokensMinted`); treasury adds LP itself, then `openTrading()` → `enableTrading`, `openedTime`, `Opened(usdt, tokens, lp)` | INTENDED (a) |
-| 17 | `opened()` | `totalMinted >= OPEN_AT` | `token.tradingEnabled()` | INTENDED (a) |
-| 18 | Shares 10,001+ | pool-priced from the next share on | allowed only after `openTrading()` (F2) | INTENDED (a) consequence; FIXED |
-| 19 | Post-open tokens per share | `pay·t·10,000 / (u·9,900)` (99% of pool price, i.e. 1% discount), on the running pool | identical formula; running pool changes only by burns | SAME formula; LP-add part INTENDED (a) |
-| 20 | Payment split | 20% treasury, 80% paired into the pool at pool price (LP to dead) | 100% treasury, no LP add | INTENDED (a) |
-| 21 | USDT payment path | `transferFrom(buyer → mint)` then split | `transferFrom(buyer → treasury)` | INTENDED (a) |
-| 22 | BNB pricing | Chainlink BNB/USD 0x0567…2aeE, heartbeat 3,600 s, bounds $50–$50,000, +1% (`BNB_EXTRA_BPS` 100), round up | identical (same feed and bounds) | SAME |
-| 23 | BNB swap + refund | swap `need` on WBNB/USDT V2 (fee 25 bps), `SwapShort`, refund `msg.value − need`, `RefundFailed` | identical; whole swap output → treasury | SAME (+ (a)); FIXED (F1) |
-| 24 | Slippage params | `mint(shares, referrer, maxCost)` maxCost in USDT wei; `mintWithBnb(...)` maxCost in BNB wei; `OverMaxCost`; `BadPayment` if value < need | identical | SAME |
-| 25 | Plain BNB to mint | `receive()` only from WBNB | identical | SAME |
-| 26 | Floor line | `totalPaid × 50,000,000 / 27,727,060` (≈1.8033×) | `totalPaid × 85,477 / 47,400` (≈1.8033×) | INTENDED (c) |
-| 27 | Floor burn rule | if circ·u/t < line: target t = ⌈u·circ/line⌉, limited by +0.8%/tx vs tx start (`RISE 1008/1000`), never below `POOL_TOKEN_FLOOR`, burn pair inventory to dead + sync, `PoolBurned` | identical code | SAME |
-| 28 | Pool minimum | 11,666,666,667 | 116,666,667 (÷100 with cap) | INTENDED (c) |
-| 29 | Ceiling line | view only, 60,000,000 / 27,727,060 | view only, 102,572 / 47,400 | INTENDED (c) |
-| 30 | `circulating()` | supply − pair − dead − mint | identical | SAME |
-| 31 | Buy tax | 1% of buys from the official pair to the mint contract | identical | SAME |
-| 32 | Sell tax | 1% to dead + 1% to the mint contract | identical | SAME |
-| 33 | Wallet transfers | 0% | 0% | SAME |
-| 34 | Tax exemptions | transfers from/to the mint contract | identical (treasury NOT exempt, same as Jager's treasury) | SAME |
-| 35 | Pre-open transfers | only from the mint contract | from the mint contract, plus treasury → official pair | INTENDED (a) (needed to add LP while locked) |
-| 36 | Tax → BNB | `swapTax()` anyone, once per block, ≤ 0.10% of pool token reserve, token→USDT→WBNB, BNB to treasury; auto-attempt inside mints via `swapTaxSelf` try/catch | identical | SAME |
-| 37 | Pool rejection | official pair allowed; V4 PoolManager 0x28e2…e9dF and Infinity Vault 0x238a…e6c4 rejected; blocked pools (until `disableBlocks`); any contract whose token0/token1 includes the token (20k-gas probes); EOAs and EIP-7702 accounts never | identical, same addresses | SAME |
-| 38 | `setPoolBlocked` | treasury; not pair/mint/treasury/token/dead/unblockable/EOA/7702 | identical; unblockable = Pancake V2 router, Smart Router, Binance DEX router (same three as Jager on-chain) | SAME |
-| 39 | `renounce()` | sets `renounced`, unpauses, `disableBlocks`; precondition seed/import | identical, no precondition | SAME (F3 fixed) |
-| 40 | Events | `Minted`, `QuotaGranted`, `Opened`, `PoolBurned`, `TaxSwapped`, `TaxSwapFailed`, `PausedSet`, `Renounced`; token `TradingEnabled`, `PoolBlocked`, `BlocksDisabled` | identical signatures; + `OpenTokensMinted` | SAME (+ (a)) |
-| 41 | Errors | Jager set | Jager set minus migration errors; + `AlreadyOpen`, `NoLiquidity` (openTrading) | SAME (+ (a)) |
-| 42 | Selectors used by site/agents | `mint` 0x836a1040, `mintWithBnb` 0xe38fd349, `bnbQuote` 0x68bce8cd, `costOf`, `quotaOf`, `mintedCount`, `socialDone`, `claimSocial`, `totalMinted`, `paused` | identical (test `test_JagerSelectors`) | SAME |
-| 43 | Extra views | — | `overview()`, `walletStatus(address)`, `agentOf(address)`, `canOpenTrading()`, `mintableNow()`, `domainSeparator()` (read-only) | additive, no state effect (Jager's site uses its own backend `/api/stats` and `/api/verify`) |
-| 44 | Token deployment | separate deploy, `initialize(minter)` by deployer | created in the mint constructor (minter = mint) | structural only (single CREATE2 tx from the Agentic Wallet; no behaviour difference) |
-| 45 | Migration | `START_MINTED` 9,515, `START_PAID` 8,475, snapshot/quota/social/account import, `seed()`, `lockImport()` | none; starts at 0 | N/A |
-| 46 | Reentrancy | `nonReentrant` on mint, mintWithBnb, swapTax | identical | SAME |
-| 47 | Compiler | 0.8.24, cancun | 0.8.24, cancun, optimizer 200 | SAME |
+| 3 | TOTAL_SHARES | 4,440,000 | 30,000 | A |
+| 4 | Start of sale | `totalMinted = START_MINTED` (9,515, migration), `totalPaid = START_PAID` | `totalMinted = BURNED_SHARES` (1,100), `totalPaid = 0`, nothing minted for them | B |
+| 5 | MAX_SUPPLY | 444T | 4.44T | D |
+| 6 | `priceCents(n)` | 5 tiers | first 3 tiers, identical; #30,000 = 2.28 | A |
+| 7 | Per-share loop in `costOf` / `_mintShares` | yes | identical | SAME |
+| 8 | Agent ID gate `_agent` (handleOf → keccak → ownerOf, try/catch) | registry 0x60B9…022F | identical | SAME |
+| 9 | Quota: base 10, invite +1 on first paid mint, 3 social tasks +1 each | | identical (same order of checks/effects) | SAME |
+| 10 | `claimSocial`, EIP-712 `Social(address user,bytes32 task,bytes32 account,uint256 deadline)` | `quotaSigner` dedicated key | identical code; signer 0x66EC…aC199 | SAME / H |
+| 11 | Per-tx 1–10 (`BadShares`), `SoldOut` (shares and supply) | | identical | SAME |
+| 12 | Pause | starts paused; treasury `setPaused`; unpause needs seed+import | starts paused; treasury `setPaused`; first unpause starts the 30-day clock | SAME (+G) |
+| 13 | Shares ≤ 10,000 | 50M to buyer, 0.80 USDT + 40M tokens parked (`pendingUsdt/pendingTokens`), 20% to treasury | identical | SAME |
+| 14 | Open at share 10,000 | `_open()`: 8,000 USDT + 400B (top-up mint) → `pair.mint(DEAD)`, `enableTrading`, `sync`, `Opened` | identical flow with parked amounts (7,120 + 356B) | C |
+| 15 | `opened()` | `totalMinted >= OPEN_AT` | identical | SAME |
+| 16 | A tx crossing 10,000 | opens inside the tx; later shares pool-priced | identical (`test_OpenInsideCrossingTx`) | SAME |
+| 17 | Post-open tokens per share | `pay·t·10,000 / (u·9,900)` | identical | SAME |
+| 18 | Post-open split | 20% treasury, 80% paired at pool price, LP to dead (`_curveShare` + `_settle`) | identical code | SAME |
+| 19 | USDT path | `transferFrom(buyer → mint)` then split | identical | SAME |
+| 20 | BNB pricing / swap / refund | Chainlink +1%, swap on WBNB/USDT V2, `SwapShort`, surplus to treasury, refund | identical | SAME |
+| 21 | Floor-line burn (`RISE` 1008/1000, pool minimum, `PoolBurned`) | | identical code, scaled constants | SAME / D |
+| 22 | `circulating()`, `floorValue()`, `ceilValue()` | | identical | SAME |
+| 23 | Taxes (buy 1% to mint; sell 1% dead + 1% mint; wallets 0%; mint exempt) | | identical | SAME |
+| 24 | Pre-open transfers | only from the mint contract | identical (the earlier treasury→pair exception is removed) | SAME |
+| 25 | `swapTax` / `swapTaxSelf` (once per block, ≤0.10% of pool) | | identical | SAME |
+| 26 | Pool rejection (other pairs, V4 PoolManager, Infinity Vault, blocked pools, 7702/EOA never) | | identical, same addresses | SAME |
+| 27 | `setPoolBlocked` / unblockable routers | | identical | SAME |
+| 28 | `renounce()` | precondition seed/import; unpauses, disables blocks | no precondition (migration N/A); also starts the clock if never started | SAME (+G) |
+| 29 | Events | Jager set | Jager set + `SharesBurned`, `MintStarted`, `UnfilledWithdrawn` | SAME (+B, G) |
+| 30 | Errors | Jager set | Jager set minus migration-only errors + `AlreadyOpen`, `MintClosed`, `DeadlineNotReached` | SAME (+G) |
+| 31 | Selectors used by site/agents | `mint` 0x836a1040, `mintWithBnb` 0xe38fd349, `bnbQuote` 0x68bce8cd, … | identical (`test_JagerSelectors`) | SAME |
+| 32 | Extra read-only views | — | `overview()`, `walletStatus()`, `agentOf()`, `mintableNow()`, `soldShares()`, `mintDeadline()`, `canWithdrawUnfilled()`, `valve()`, `domainSeparator()` | additive |
+| 33 | Withdraw paths | none (all USDT ends in the pool or treasury) | only `withdrawUnfilled()` (G) | G |
+| 34 | Reentrancy | `nonReentrant` on mint, mintWithBnb, swapTax | same + `withdrawUnfilled` | SAME |
+| 35 | Compiler | 0.8.24 cancun | 0.8.24 cancun, optimizer 200 | SAME |
 
-## Effects of (a) worth knowing (not bugs, consequences of the allowed change)
-- Minting stops at 10,000 until the treasury adds LP and calls `openTrading()`; nothing can be minted in between.
-- Mints never add pool USDT, so after opening the pool's USDT side stays at what the team deposited; floor burns only shrink the token
-  side. Fork run: pool 8,025 USDT / 114.2B BNAGENT at sell-out (price ≈3.5× opening), circulating "value" on the line 85,476 USDT vs 8k real depth.
-- LP tokens sit in the treasury (withdrawable). Jager sends them to dead.
+## Griefing on the empty pair (checked against Jager, matched)
+
+The official pair is created empty by the token constructor. Before the open nobody but the mint contract can move BNAGENT, so:
+- Nobody can put BNAGENT into the pair; a USDT-only `pair.mint()` reverts (sqrt(x·0) − 1000 underflows) → **LP supply is always 0 before the open**.
+- USDT donated to the pair, with or without `sync()`, is absorbed: `pair.mint()` credits `balance − reserve` = exactly what `_open` sends, and the donation stays in the pool (LP to dead). Tested with 1 wei + 50,000 USDT + sync, and 7 USDT without sync.
+- `skim()` reverts before the open (it transfers 0 BNAGENT out of the pair, which the lock refuses) — harmless, same as Jager.
+- USDT donated to the mint contract does not change the opening (counters, not balances; C). It stays in the contract; it is swept to the treasury only if `withdrawUnfilled()` runs.
+Jager's `_open` behaves the same way; no fix was needed beyond C.
+
+## Judgment calls to note
+- Withdraw is allowed strictly **after** `start + 30 days`; minting is **not** auto-stopped at the deadline. Until the treasury calls
+  `withdrawUnfilled()`, minting continues and a mint that reaches 10,000 still opens the pool (then the withdraw is gone for good).
+- `withdrawUnfilled()` also sets `paused = true` so UIs reading only `paused` show minting stopped.
 
 ## Tests
-`test/BnagentFork.t.sol`, BSC mainnet fork (block 130,495,086): **16/16 pass** (docs/test-results.txt). New: `test_NoMintPastOpenAtBeforeTrading`,
-`test_RenounceBeforeOpen`, `test_JagerSelectors`; BNB tests now check the swap and that the treasury receives ≥ cost in USDT.
+`test/BnagentFork.t.sol`, BSC mainnet fork: **25/25 pass** (docs/test-results.txt).
