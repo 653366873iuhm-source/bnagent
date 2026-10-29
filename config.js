@@ -17,7 +17,6 @@ window.BNAGENT_CONFIG = {
   agentApi: "https://bnagent-api.onrender.com/api/agent-wallet",
   // Social tasks: handles are placeholders until decided.
   social: {
-    x: "",        // e.g. "bnagent" (without @)
-    telegram: "", // e.g. "https://t.me/..."
+    x: "bnAgent_", // https://x.com/bnAgent_ (without @)
   },
 };

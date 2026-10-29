@@ -39,7 +39,7 @@ Minting needs `paused == false` and `mintableNow() > 0` (0 once sold out). The 3
 
 ## 4. Social tasks (+1 share each)
 
-Tasks: FOLLOW (X), TWEET (post about BNAGENT), TELEGRAM (join group). Official handles: to be announced.
+Tasks: FOLLOW (X), TWEET (post about BNAGENT), TELEGRAM (join group). Official X: @bnAgent_ (https://x.com/bnAgent_). Telegram: to be announced.
 After verification the project signer issues an EIP-712 `Social(address user,bytes32 task,bytes32 account,uint256 deadline)`
 signature (domain name `BnagentMint`, version `1`, chainId 56, verifyingContract = mint); the wallet then calls
 `claimSocial(bytes32 task, bytes32 account, uint256 deadline, bytes signature)` (`0x2e3c4860`). Each X/TG account counts for one Agent ID only.
