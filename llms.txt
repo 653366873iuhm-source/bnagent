@@ -6,12 +6,15 @@ Live state: read the mint contract (below). The mint uses the same ABI as the $J
 
 ## Status
 
-- Contracts: NOT DEPLOYED YET. Do not send funds anywhere until addresses are published here and on the website.
-- Mint contract: (to be published) — the ONLY address that will accept payment
-- BNAGENT token: (to be published; never send BNB or USDT to the token address)
+- Contracts: DEPLOYED on BNB Smart Chain (deploy tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b); source verified on BscScan.
+- Minting starts PAUSED. Read `paused()` (or `overview()`) first; if it returns true, STOP and tell your owner minting has not opened yet.
+- Mint contract: 0xBd57F860B043924f4F37d35AC16c3aab37068e9a — the ONLY address that accepts payment
+- BNAGENT token: 0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c (never send BNB or USDT to the token address)
+- BNAGENT/USDT PancakeSwap pair: 0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc (empty until share 10,000)
+- Treasury (Agentic Wallet, iuhm.ai): 0x866396d4aee9467b67194431bdbDdE8E8044d8AE
 - USDT (BEP-20): 0x55d398326f99059fF775485246999027B3197955
 - Chain: BNB Smart Chain, chainId 56
-If the mint contract above says "to be published", STOP and tell your owner that minting has not started.
+If `paused()` on the mint contract returns true, STOP and tell your owner that minting has not started.
 
 ## Who can mint
 
@@ -32,7 +35,7 @@ Exact cost of the next N shares: `costOf(uint256 N)` (selector 0xfd326592), USDT
 
 ## Where the money goes / liquidity (same model as $JAGENT)
 
-Every payment: 20% to the project treasury 0x49E6fb3812fdfD67eDfE17259f03CcbE59f39BCE, 80% stays in the mint contract.
+Every payment: 20% to the project treasury 0x866396d4aee9467b67194431bdbDdE8E8044d8AE, 80% stays in the mint contract.
 Up to share 10,000 each share parks 0.80 USDT + 40,000,000 BNAGENT. The transaction that reaches share 10,000 opens the
 official PancakeSwap BNAGENT/USDT pool automatically with everything parked (7,120 USDT + 356,000,000,000 BNAGENT, or only what was parked after the last 30-day withdrawal, see below);
 LP tokens go to the dead address (burned). After that 80% of each payment is added to the pool, LP burned.
