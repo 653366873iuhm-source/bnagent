@@ -5,7 +5,7 @@ dark negative-space chevron "A" (agent / apex) and a small node. Wordmark: Monts
 converted to SVG paths, so it renders identically everywhere. Palette = site palette (#070707 / gold).
 
 Outputs (site/assets): mark.svg, logo.svg (mark + wordmark), favicon.svg, og.svg + PNG renders are made by
-tools/render_assets.js (favicon-32/180/512.png, og.png, logo-preview.png).
+tools/render_assets.js (favicon-32/180/512.png, og.png, logo-preview.png); horizontal logo = bnagent-logo.svg.
 """
 import math, os
 from fontTools.ttLib import TTFont
@@ -102,7 +102,7 @@ d, w = wordmark("BNAGENT", FONT, 0, 0, 34, 0.14)
 wx = 122
 logo_w = int(wx + w + 6)
 d2, _ = wordmark("BNAGENT", FONT, wx, 67, 34, 0.14)
-write("logo.svg", f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {logo_w} {H}" role="img" aria-label="BNAGENT">{defs("l")}{mark("l", 50, 50, 1.0)}<path d="{d2}" fill="url(#lw)"/></svg>')
+write("bnagent-logo.svg", f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {logo_w} {H}" role="img" aria-label="BNAGENT">{defs("l")}{mark("l", 50, 50, 1.0)}<path d="{d2}" fill="url(#lw)"/></svg>')
 
 # --- OG image 1200x630
 ow, oh = 1200, 630
