@@ -1,5 +1,5 @@
 // BNAGENT site configuration. Deployed on BSC mainnet 2026-10-30 (tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b).
-// Minting starts PAUSED; the site reads paused/supply live from the mint contract.
+// Minting is LIVE (setPaused(false) sent); the site reads paused/supply live from the mint contract.
 window.BNAGENT_CONFIG = {
   chainId: 56,
   rpc: ["https://bsc-dataseed.bnbchain.org", "https://bsc-rpc.publicnode.com", "https://bsc-dataseed1.binance.org"],

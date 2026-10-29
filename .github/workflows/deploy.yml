@@ -1,0 +1,51 @@
+name: deploy
+# On every push to main: mirror site/ to the gh-pages branch (GitHub Pages) and trigger the Render deploys.
+# Render's own auto-deploy does not fire for this repo (the Render GitHub App is not installed on the account), so the deploys
+# are triggered here when credentials exist: repo secrets RENDER_DEPLOY_HOOK_SITE / RENDER_DEPLOY_HOOK_API (deploy hook URLs
+# from each service's Settings page) or RENDER_API_KEY. Without them the step only prints a notice.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  gh-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mirror site/ to gh-pages
+        run: |
+          set -e
+          git config --global user.name "bnagent-bot"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth 1 || true
+          git worktree add -B gh-pages /tmp/ghp origin/gh-pages 2>/dev/null || git worktree add -B gh-pages /tmp/ghp
+          rsync -a --delete --exclude .git site/ /tmp/ghp/
+          cd /tmp/ghp && git add -A
+          if git diff --cached --quiet; then echo "gh-pages already in sync"; exit 0; fi
+          git commit -q -m "Mirror site/ @${GITHUB_SHA::7}" && git push -q origin gh-pages
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Render deploys
+        env:
+          HOOK_SITE: ${{ secrets.RENDER_DEPLOY_HOOK_SITE }}
+          HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          if [ -n "$HOOK_SITE" ] || [ -n "$HOOK_API" ]; then
+            if [ -n "$HOOK_SITE" ]; then curl -sf -X POST "$HOOK_SITE" > /dev/null && echo "site deploy triggered"; fi
+            if [ -n "$HOOK_API" ]; then curl -sf -X POST "$HOOK_API" > /dev/null && echo "api deploy triggered"; fi
+          elif [ -n "$RENDER_API_KEY" ]; then
+            for s in srv-dbhnqqqjnfac73afudj0 srv-dbhnrnnlk1mc73d80lm0; do
+              curl -sf -X POST -H "Authorization: Bearer $RENDER_API_KEY" -H "content-type: application/json" -d '{}' "https://api.render.com/v1/services/$s/deploys" | jq -r '.id // .deploy.id'
+            done
+          else
+            echo "::notice::No Render credentials in repo secrets (RENDER_DEPLOY_HOOK_SITE / RENDER_DEPLOY_HOOK_API or RENDER_API_KEY); deploys must be triggered manually."
+          fi

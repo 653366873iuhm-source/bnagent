@@ -1,9 +1,16 @@
 name: keepalive
-# Render free web services sleep after ~15 min idle; ping the API every 10 minutes so the QR login / social vouchers answer fast.
+# Every 10 minutes: (1) ping the API so the Render free instance stays awake (QR login / social vouchers answer fast);
+# (2) export the off-chain Bind X data (Agent ID wallet address <-> X handle, public) from the API and commit it to
+#     data/bindx.json on the `data` branch. The API restores from that file on boot.
+# Export auth: a GitHub Actions OIDC token (audience "bnagent-api", repository claim checked by the API) — no stored secret
+# needed; if the optional repo secret BINDX_EXPORT_KEY exists it is sent as well.
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
@@ -20,3 +27,46 @@ jobs:
             sleep 20
           done
           exit 1
+  export-bindx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Export Bind X data from the API
+        env:
+          EXPORT_KEY: ${{ secrets.BINDX_EXPORT_KEY }}
+        run: |
+          set -e
+          TOKEN=$(curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=bnagent-api" | jq -r .value)
+          echo "::add-mask::$TOKEN"
+          for i in 1 2 3 4; do
+            code=$(curl -s -o /tmp/bindx.json -w '%{http_code}' --max-time 90 -H "Authorization: Bearer $TOKEN" ${EXPORT_KEY:+-H "x-export-key: $EXPORT_KEY"} https://bnagent-api.onrender.com/api/x-bind/export || true)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && break
+            sleep 20
+          done
+          if [ "$code" != "200" ]; then echo "export not available (HTTP $code); nothing to commit"; exit 0; fi
+          jq -e '.version == 1 and (.bindings | type == "array") and (.unbinds | type == "array")' /tmp/bindx.json > /dev/null
+          jq -S . /tmp/bindx.json > /tmp/bindx.pretty.json
+          echo "ok=1" >> "$GITHUB_ENV"
+      - name: Commit data/bindx.json to the data branch
+        if: env.ok == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          git config --global user.name "bnagent-bot"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$url" data > /dev/null; then
+            git clone --depth 1 --branch data "$url" d
+          else
+            mkdir d && cd d && git init -q -b data && git remote add origin "$url" && cd ..
+            printf '# BNAGENT data branch\n\nWritten by .github/workflows/keepalive.yml. data/bindx.json = Bind X (Agent ID wallet address <-> X handle), public data restored by the API on boot.\n' > d/README.md
+          fi
+          mkdir -p d/data && cp /tmp/bindx.pretty.json d/data/bindx.json
+          cd d && git add -A
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -q -m "bindx: $(jq '.bindings | length' data/bindx.json) bindings" && git push -q origin data

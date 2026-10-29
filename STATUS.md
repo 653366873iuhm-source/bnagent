@@ -1,10 +1,10 @@
-# BNAGENT — STATUS (2026-10-30 ~02:00 CST)
+# BNAGENT — STATUS (2026-10-30 ~05:00 CST)
 
-## DEPLOYED on BSC mainnet (minting still PAUSED)
+## DEPLOYED on BSC mainnet — MINTING LIVE (setPaused(false) sent; totalMinted 1,101 at 03:30 CST)
 - Deploy tx 0xb5783c0dff18c9f48cc2720b6c1d389a7298fdd52b5795dcaffe55012f16430b (block 130,514,568, success), sent from the treasury Agentic Wallet **0x866396d4aee9467b67194431bdbDdE8E8044d8AE (`iuhm.ai`)**.
 - Mint **0xBd57F860B043924f4F37d35AC16c3aab37068e9a** · token **0xFfA0441EC4ce08F1afE3fdA5093d69ab30e5b97c** · pair **0xb8E1f4a2B792BAc02599e183e1B8d6f2E54286Dc** (from `mint.pair()`).
 - Source **verified on BscScan** (Etherscan v2 API, standard-JSON) and **Sourcify** (full match) for mint and token.
-- On-chain: `paused()` = true, `totalMinted()` = 1100, `treasury()` = iuhm.ai wallet. **Tx 2 `setPaused(false)` NOT sent** (needs user confirmation).
+- On-chain: `paused()` = false (minting open), `totalMinted()` = 1,101 at last check, `treasury()` = iuhm.ai wallet.
 - Render `bnagent-api`: `ALLOW_TO=0xBd57F860B043924f4F37d35AC16c3aab37068e9a` set and redeployed. Site config/llms.txt/agent.md/docs carry the live addresses; site reads paused/supply live.
 - Note: the NatSpec comment in src/BnagentMint.sol still says "treasury 0x49E6…9BCE" — left unchanged on purpose (verified source must match
   what was deployed; the treasury is a constructor argument, so the comment has no effect).
@@ -40,16 +40,34 @@
   noble.mjs = vendored @noble/curves+hashes bundle (service stays dependency-free, build `echo no-deps`).
 - Site copies jager.live: header "Invite & tasks · +1 mint" (mobile "Earn") dialog (quota grid, invite link + code copy, social tasks
   Follow/Post → Claim +1 → claimSocial via the connected wallet), shares radio 1–10 + USDT/BNB radios in the mint card, Leaderboard card.
-  Not copied (need persistent storage): Jager's "Bind X" section and "Border season" points/levels.
 - `.github/workflows/keepalive.yml` pings https://bnagent-api.onrender.com/ every 10 min; the site also pings it on load.
 
 ## Not done / next
-- Render auto-deploy on push did NOT fire for either service (GitHub webhook apparently not wired for this repo): after each push trigger
-  `POST https://api.render.com/v1/services/<id>/deploys` (static `srv-dbhnqqqjnfac73afudj0`, api `srv-dbhnrnnlk1mc73d80lm0`) or fix the Render GitHub app access.
-- **Open minting**: tx 2 `setPaused(false)` from the treasury — only after the user confirms (starts the 30-day clock).
+- Render auto-deploy: both services show autoDeploy=yes / trigger=commit / repo linked, but Render gets no push events (the Render
+  GitHub App is not installed on 653366873iuhm-source; cannot be fixed via the Render API). `.github/workflows/deploy.yml` triggers
+  deploys on push **if** repo secrets RENDER_DEPLOY_HOOK_SITE / RENDER_DEPLOY_HOOK_API (hook URLs from each service's Settings page;
+  the API does not expose them) or RENDER_API_KEY exist — Hark's GitHub token cannot write repo secrets (403), so a human must add
+  one. Until then: `POST https://api.render.com/v1/services/<id>/deploys` (static `srv-dbhnqqqjnfac73afudj0`, api `srv-dbhnrnnlk1mc73d80lm0`).
+  gh-pages is now mirrored from site/ by the same workflow on every push to main.
 - Real scan-and-approve of the QR flow not exercised (needs a user with the Binance App); Render free web service sleeps after ~15 min idle,
   so the first QR request can take ~30-60 s.
 
 ## Open decisions
 1. X / Telegram handles still placeholders in site/config.js.
 2. Not audited. Leaderboards need an indexer.
+
+## Jager parity round (2026-10-30 ~05:00 CST)
+- Site: pre-JS HTML shows the live state (supply "—" until read, minting Open, addresses; meta/og "Minting is live"); Jager side rails
+  (≥1280px, vertical "BNB SMART CHAIN · AGENT ID ONLY" / "BUILT FOR BINANCE AGENTIC WALLET · ONE AND ONLY" — Jager has no top
+  scrolling strip); header counter "N / 30,000 · Shares · Now 1U"; mint card = Jager "Mint Pass" (Agent ID status lines, border badge
+  + pts + @x, Current tier "Tier n · xU", Next serial, You receive (est.) + Jager note, "Total shares … · Rises to 1.1U at 10,000",
+  figcaption, "Preview your Mint Pass" → 3D rotating pass dialog with border progress, post text 中文/EN, Post on X / Copy / Save
+  image, "Mint successful" after a mint); price table lists all 21 tiers + burned row (no collapse); whitepaper moved to
+  site/whitepaper/index.html (content identical, Jager page header), nav Whitepaper → whitepaper/ (+ mobile icon link); bottom
+  safety notes (pay only to mint, token address only for wallets, never send USDT directly, "Minted before?", "AI agents: read llms.txt").
+  Invite dialog gains Bind X + Border season sections; leaderboard rows show border diamonds and X links.
+- API: GET /api/stats + /api/verify (Jager shapes), GET /api/pass, GET/POST /api/x-bind, GET /api/x-bind/export (OIDC or
+  BINDX_EXPORT_KEY, set on Render; local copy secrets/bindx-export-key). Season points derived from chain logs (no DB).
+  Bind X persisted via keepalive.yml job export-bindx → branch `data`, file data/bindx.json; restored on boot. Spec: docs/JAGER-BINDX-SEASON.md.
+- Tests: `node test/server/api.test.mjs` (39) and `NODE_PATH=/workspace/work/webtest/node_modules PW_LIBS=/workspace/work/webtest/libs
+  node test/site/site.test.js [siteDir] [liveUrl]` (79; was the 52-test /workspace/work/webtest/bn-site.test.js, now in the repo).
