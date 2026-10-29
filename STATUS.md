@@ -1,6 +1,6 @@
 # STATUS (updated 2026-10-30 05:20 CST)
 
-## v2 LIVE DEPLOYMENT (current) — minting still PAUSED until the user confirms setPaused(false)
+## v2 LIVE DEPLOYMENT (current) — minting LIVE since setPaused(false) tx 0x3384c6d5d1596935a51f45ebe15f58c77cee3426bfdffb65db42edcc75f70943
 - 100,000,000 shares (#1–#1,100 burned at deploy, sale from #1,101; 99,998,900 sellable), 5,131 tiers 1U → 79.74U, cap 10,000T.
 - Deploy tx 0x89fc3e2ad568a0d080849914e1d2fd2d402c6250ceaa2e2ed0cc37186c268ac6 (block 130,542,132, CREATE2 salt keccak256("BNAGENT.mint.v2")).
 - Mint 0xD6aFC30810B001CfA5306A2C54b5E6559DfC9Cf0 · Token 0xC7F95A3bff008053A4e2f235bAf2f6d784e6C5FB · Pair 0x7d4Fde617a4f5D83fD8A354672558d9B9Cd5aA6f.
