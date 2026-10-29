@@ -22,9 +22,10 @@
 - Fork tests: **26/26 PASS** (docs/test-results.txt).
 - Deploy plan `deploy/bsc-mainnet-plan.json` (tx 1 broadcast byte-identical), docs/DEPLOY.md (deployed addresses + verification).
 - Site: **https://bnagent.onrender.com/** (Render static site `bnagent`, publish dir `site/`; auto-deploy does NOT fire, trigger a manual deploy via API) + GitHub Pages mirror
-  https://653366873iuhm-source.github.io/bnagent/ (gh-pages = copy of site/). **Logo v2** (2026-10-30, commit 81541b6; tools/make_logo_v2.py):
-  glossy gold helmet/chevron agent mark + Michroma "BNAGENT" wordmark lockup; v2 favicons (svg + 32/180/512 png) and og-v2 image with new
-  filenames (Render CDN cached the old ones); runner-up concepts kept as site/assets/logo-v2-alt-1..3.png. og/twitter tags, canonical = onrender.
+  https://653366873iuhm-source.github.io/bnagent/ (gh-pages = copy of site/). **Logo v3** (2026-10-30; tools/make_logo_v3.py, concept r3-4 "Woven chevron A"):
+  clean vector mark: gold #E8B84A upward chevron woven with an amber #B07823 V forming an A (bnagent-mark-v3.svg/.png) + Space Grotesk Bold
+  cream "BNAGENT" lockup (bnagent-lockup-v3.png); favicon-v3.svg + favicon-v3-32/180/512.png, og-v3.png; preview logo-v3-preview.png.
+  New filenames per version (Render CDN caches old ones). Concept sheets logo-r3-1..6.png; v2 helmet files kept but unused. og/twitter tags, canonical = onrender.
 - **Binance Agentic Wallet (.ai Agent ID) QR connect** like jager.live: `server/index.mjs` proxy (Render web service `bnagent-api`,
   https://bnagent-api.onrender.com, free plan, Singapore) → Binance agent-wallet login/confirm/query/mpc-wallet list/contract-call preview/execute.
   Desktop: QR + pairing code; mobile: "Open in Binance App" link (the QR URL is a Binance universal link). Connected session acts as an EIP-1193
